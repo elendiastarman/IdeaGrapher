@@ -1,3 +1,5 @@
+import json
+
 DATABASE = "graphstore"
 
 
@@ -28,14 +30,31 @@ class MongoModel(object):
       try:
         field.validate()
       except ValueError as e:
-        errors[field_name] = e
+        errors[field_name] = e.args[0]
+
+    return errors
 
   def serialize(self):
-    pass
+    return json.dumps({field_name: field.serialize() for field_name, field in self.fields.items()})
 
-  @classmethod
-  def deserialize(cls, data):
-    pass
+  def deserialize(self, data):
+    if not isinstance(data, dict):
+      raise ValueError("Data must be a dict, not a {}".format(type(data)))
+
+    errors = {}
+
+    for key, value in data.items():
+      if key not in self.fields:
+        errors[key] = "{} is not a field on this model.".format(key)
+        continue
+
+      try:
+        self.fields[key].deserialize(value)
+      except ValueError as e:
+        errors[key] = e.args[0]
+
+    if errors:
+      raise ValueError("Errors during deserialization: {}".format(errors))
 
 
 class MongoField(object):
@@ -57,14 +76,26 @@ class MongoField(object):
   def serialize(self):
     return str(self.value)
 
-  @classmethod
-  def deserialize(cls, data):
-    return cls(data)
+  def deserialize(self, data):
+    self.set(data)
 
 
 # ## Specialized fields
 class IntegerField(MongoField):
-  pass
+  def __init__(self, min_value=None, max_value=None, **kwargs):
+    super().__init__(**kwargs)
+
+  def validate(self):
+    super().validate()
+
+    if not isinstance(self.value, int):
+      raise ValueError("Value must be {}, not {}.".format(int, type(self.value)))
+
+    if self.min_value and self.value < self.min_value:
+      raise ValueError("Minimum value is {}; actual value is {}.".format(self.min_value, self.value))
+
+    if self.max_value and self.value > self.max_value:
+      raise ValueError("Maximum value is {}; actual value is {}.".format(self.max_value, self.value))
 
 
 class StringField(MongoField):
@@ -80,6 +111,39 @@ class StringField(MongoField):
 
     if self.max_length and len(self.value) > self.max_length:
       raise ValueError("Maximum length is {}; actual length is {}.".format(self.max_length, len(self.value)))
+
+
+class ListField(MongoField):
+  def __init__(self, field_class, max_length=0, **kwargs):
+    super().__init__(**kwargs)
+    self.max_length = max_length
+    self.field_class = field_class
+    self.value = []
+
+  def validate(self):
+    super().validate()
+
+    if self.max_length and len(self.value) > self.max_length:
+      raise ValueError("Maximum length is {}; actual length is {}.".format(self.max_length, len(self.value)))
+
+    errors = []
+
+    for idx, val in enumerate(self.value):
+      if not isinstance(val, self.field_class):
+        errors.append((idx, type(val), val))
+
+    if errors:
+      raise ValueError("Not all elements were {}; bad elements: {}".format(self.field_class, errors))
+
+  def serialize(self):
+    return json.dumps([element.serialize() for element in self.value])
+
+  def deserialize(self):
+    pass
+
+
+class ModelField(MongoField):
+  pass
 
 
 # ## Node-related models
