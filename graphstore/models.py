@@ -1,13 +1,21 @@
 import json
-
-DATABASE = "graphstore"
+from pymongo import MongoClient
 
 
 # ## Base classes
-class MongoModel(object):
+class MongoModel:
   fields = {}
+  DATABASE = None
+  CLIENT = None
+  _id = None
 
-  def __init__(self, sparse=False):
+  def __init__(self, sparse=False, _database=None, _collection=None):
+    self.DATABASE = _database or self.__class__.DATABASE
+    if not self.DATABASE:
+      raise ValueError("Either MongoModel.DATABASE or _database must not be None.")
+
+    self.COLLECTION = _collection or str(self.__class__).split('.')[-1][:-2].lower()
+
     self.sparse = sparse
 
     for field_name in dir(self):
@@ -15,13 +23,38 @@ class MongoModel(object):
       if isinstance(attr, MongoField):
         self.fields[field_name].append(attr)
 
+  @classmethod
+  def connect(cls, uri, port, username=None, password=None, auth_source="admin", auth_mechanism="SCRAM-SHA-1"):
+    if username and password:
+      cls.CLIENT = MongoClient(uri, port, username=username, password=password, authSource=auth_source, authMechanism=auth_mechanism)
+    else:
+      cls.CLIENT = MongoClient(uri, port)
+
+  @classmethod
+  def set_database(cls, new_database):
+    cls.DATABASE = new_database
+
+  @property
+  def id(self):
+    return str(self._id) if self._id else None
+
   def save(self):
+    if not self.CLIENT:
+      raise ValueError("Must be connected to Mongo.")
+
     errors = self.validate()
 
     if errors:
       raise ValueError("Data error(s): {}".format(errors))
 
     # TODO: actually save to database here
+    if not self._id:
+      result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(self.serialize())
+      self._id = result.inserted_id
+    else:
+      changed = self.changed()
+      if changed:
+        result = self.CLIENT[self.DATABASE][self.COLLECTION].update_one({'_id': self._id}, {'$set': changed})
 
   def validate(self):
     errors = {}
@@ -33,6 +66,13 @@ class MongoModel(object):
         errors[field_name] = e.args[0]
 
     return errors
+
+  def changed(self):
+    return self.serialize()
+
+    # TODO: Identify only what changed
+    # if self.dirty:
+    #   pass
 
   def serialize(self):
     return json.dumps({field_name: field.serialize() for field_name, field in self.fields.items()})
@@ -57,7 +97,7 @@ class MongoModel(object):
       raise ValueError("Errors during deserialization: {}".format(errors))
 
 
-class MongoField(object):
+class MongoField:
   def __init__(self, default=None, nullable=False):
     self.value = default
     self.nullable = nullable
