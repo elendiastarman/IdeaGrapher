@@ -1,3 +1,4 @@
+import bson
 import json
 from pymongo import MongoClient
 
@@ -183,7 +184,14 @@ class ListField(MongoField):
 
 
 class ModelField(MongoField):
-  pass
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+
+  def validate(self):
+    super().validate()
+
+    if not isinstance(self.value, bson.ObjectId):
+      raise ValueError("Value must be {}, not {}.".format(bson.ObjectId, type(self.value)))
 
 
 # ## Node-related models
@@ -191,3 +199,7 @@ class Node(MongoModel):
   shortname = StringField(max_length=30)
   blurb = StringField(max_length=200, default="")
   explanation = StringField(default="")
+
+
+class Graph(MongoModel):
+  nodes = ListField(ModelField)
