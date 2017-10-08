@@ -1,5 +1,5 @@
 import bson
-import json
+# import json
 from pymongo import MongoClient
 
 
@@ -20,7 +20,7 @@ class MongoModel:
     for field_name in dir(self):
       attr = self.__getattribute__(field_name)
       if isinstance(attr, MongoField):
-        self.fields[field_name].append(attr)
+        self.fields[field_name] = attr
 
   @classmethod
   def connect(cls, uri, port, username=None, password=None, auth_source="admin", auth_mechanism="SCRAM-SHA-1"):
@@ -36,6 +36,18 @@ class MongoModel:
   @property
   def id(self):
     return str(self._id) if self._id else None
+
+  def __getattribute__(self, name):
+    if name != "fields" and name in self.fields:
+      return self.fields[name].value
+    else:
+      return super().__getattribute__(name)
+
+  def __setattr__(self, name, new_value):
+    if name != "fields" and name in self.fields:
+      self.fields[name].value = new_value
+    else:
+      super().__setattr__(name, new_value)
 
   def save(self):
     if not self.CLIENT:
@@ -74,7 +86,7 @@ class MongoModel:
     #   pass
 
   def serialize(self):
-    return json.dumps({field_name: field.serialize() for field_name, field in self.fields.items()})
+    return {field_name: field.serialize() for field_name, field in self.fields.items()}
 
   def deserialize(self, data):
     if not isinstance(data, dict):
@@ -175,7 +187,7 @@ class ListField(MongoField):
       raise ValueError("Not all elements were {}; bad elements: {}".format(self.field_class, errors))
 
   def serialize(self):
-    return json.dumps([element.serialize() for element in self.value])
+    return [element.serialize() for element in self.value]
 
   def deserialize(self):
     pass
