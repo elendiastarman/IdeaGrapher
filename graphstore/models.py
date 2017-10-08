@@ -10,14 +10,12 @@ class MongoModel:
   CLIENT = None
   _id = None
 
-  def __init__(self, sparse=False, _database=None, _collection=None):
+  def __init__(self, _database=None, _collection=None):
     self.DATABASE = _database or self.__class__.DATABASE
     if not self.DATABASE:
       raise ValueError("Either MongoModel.DATABASE or _database must not be None.")
 
     self.COLLECTION = _collection or str(self.__class__).split('.')[-1][:-2].lower()
-
-    self.sparse = sparse
 
     for field_name in dir(self):
       attr = self.__getattribute__(field_name)
