@@ -15,7 +15,7 @@ class MongoModel:
     if not self.DATABASE:
       raise ValueError("Either MongoModel.DATABASE or _database must not be None.")
 
-    self.COLLECTION = _collection or str(self.__class__).split('.')[-1][:-2].lower()
+    self.COLLECTION = _collection or str(self.__class__).split('.')[-1][:-2].lower()  # default: the class name lowercased
 
     for field_name in dir(self):
       attr = self.__getattribute__(field_name)
