@@ -10,7 +10,7 @@ class MongoModel:
   CLIENT = None
   _id = None
 
-  def __init__(self, _database=None, _collection=None):
+  def __init__(self, _database=None, _collection=None, **kwargs):
     self.DATABASE = _database or self.__class__.DATABASE
     if not self.DATABASE:
       raise ValueError("Either MongoModel.DATABASE or _database must not be None.")
@@ -20,6 +20,9 @@ class MongoModel:
     for field_name in dir(self):
       attr = self.__getattribute__(field_name)
       if isinstance(attr, MongoField):
+        if field_name in kwargs:
+          attr.value = kwargs[field_name]
+
         self.fields[field_name] = attr
 
   @classmethod
@@ -193,9 +196,17 @@ class ListField(MongoField):
     pass
 
 
+class EnumField(MongoField):
+  pass
+
+
 class ModelField(MongoField):
-  def __init__(self, **kwargs):
+  def __init__(self, model_class, **kwargs):
     super().__init__(**kwargs)
+
+    if isinstance(model_class, str):
+      model_class = globals()[model_class]
+    self.model_class = model_class
 
   def validate(self):
     super().validate()
@@ -209,7 +220,18 @@ class Node(MongoModel):
   shortname = StringField(max_length=30)
   blurb = StringField(max_length=200, default="")
   explanation = StringField(default="")
+  subgraph = ListField(ModelField('Graph'))
+
+
+class Link(MongoModel):
+  kind = EnumField(["connected", "related", "directed"])
+  sources = ListField(MongoField(Node))
+  sinks = ListField(MongoField(Node))
 
 
 class Graph(MongoModel):
-  nodes = ListField(ModelField)
+  slug = StringField(max_length=30)
+  blurb = StringField(max_length=200, default="")
+  explanation = StringField(default="")
+  links = ListField(ModelField(Link))
+  nodes = ListField(ModelField(Node))
