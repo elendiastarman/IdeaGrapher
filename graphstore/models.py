@@ -197,7 +197,15 @@ class ListField(MongoField):
 
 
 class EnumField(MongoField):
-  pass
+  def __init__(self, allowed, **kwargs):
+    super().__init__(**kwargs)
+    self.allowed = allowed
+
+  def validate(self):
+    super().validate()
+
+    if not self.value in allowed:
+      raise ValueError("Value is {} but it must be one of {}.".format(self.value, self.allowed))
 
 
 class ModelField(MongoField):
