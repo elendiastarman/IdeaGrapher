@@ -1,12 +1,15 @@
 from bson import ObjectId
 from pymongo import MongoClient
 
+deferred_funcs = []  # for e.g. resolving circular dependencies
+
 
 # ## Base classes
 class MongoModel:
   fields = {}
-  DATABASE = None
   CLIENT = None
+  DATABASE = None
+  COLLECTION = None
   _id = None
 
   def __init__(self, _database=None, _collection=None, **kwargs):
@@ -14,7 +17,8 @@ class MongoModel:
     if not self.DATABASE:
       raise ValueError("Either MongoModel.DATABASE or _database must not be None. Use MongoModel.set_database.")
 
-    self.COLLECTION = _collection or self.__class__.default_collection_name()
+    if _collection:
+      self.COLLECTION = _collection
 
     for key, value in kwargs.items():
       self.__setattr__(key, value)
@@ -98,12 +102,15 @@ class MongoModel:
     deserialized_data = {}
 
     for key, value in data.items():
-      if key not in cls.fields:
+      # skip fields that start with an underscore, like _id
+      if key[0] == '_':
+        continue
+      elif key not in cls.fields:
         errors[key] = "{} is not a field on this model.".format(key)
         continue
 
       try:
-        deserialized_data[key].deserialize(value)
+        deserialized_data[key] = cls.fields[key].deserialize(value)
       except ValueError as e:
         errors[key] = e.args[0]
 
@@ -120,7 +127,9 @@ class MongoModel:
     if isinstance(object_id, str):
       object_id = ObjectId(object_id)
 
+    print("Collection:", cls.CLIENT[cls.DATABASE][cls.COLLECTION])
     doc = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find_one({'_id': object_id})
+    print("doc:", doc)
     return cls.deserialize(doc)
 
 
@@ -137,7 +146,8 @@ class MongoField:
     if not self.nullable and self.value is None:
       raise ValueError("This instance of {} cannot be None.".format(type(self)))
 
-  def clean(self, new_value):
+  @classmethod
+  def clean(cls, new_value):
     return new_value
 
   def serialize(self):
@@ -145,9 +155,10 @@ class MongoField:
 
   @classmethod
   def deserialize(cls, data):
-    ret = cls(default=cls.clean(data))
-    ret.validate()
-    return ret
+    return data
+    # ret = cls(default=cls.clean(data))
+    # ret.validate()
+    # return ret
 
 
 # ## Specialized fields
@@ -230,14 +241,15 @@ class ModelField(MongoField):
     super().__init__(**kwargs)
 
     if isinstance(model_class, str):
-      model_class = globals()[model_class]
-    self.model_class = model_class
+      deferred_funcs.append(lambda: lambda instance, model_cls: setattr(instance, 'model_class', locals()[model_cls])(self, model_class))
+    else:
+      self.model_class = model_class
 
   def validate(self):
     super().validate()
 
-    if not isinstance(self.value, ObjectId):
-      raise ValueError("Value must be {}, not {}.".format(ObjectId, type(self.value)))
+    if not isinstance(self.value, self.model_class):
+      raise ValueError("Value must be {}, not {}.".format(self.model_class, type(self.value)))
 
 
 # ## Node-related models
@@ -264,15 +276,19 @@ class Graph(MongoModel):
 
 # ## Hacky stuff
 
+frozen_locals = locals().copy()
+for key, item in frozen_locals.items():
+  if isinstance(item, type) and issubclass(item, MongoModel):
+    # Set each class' COLLECTION variable
+    item.COLLECTION = item.default_collection_name()
 
-for key, item in locals().items():
-  if isinstance(item, MongoModel):
-    # Set each class' COLLECTION variable if it is not already set
-    if not item.COLLECTION:
-      item.COLLECTION = item.default_collection_name()
-
-    # initialize model class' fields variable
+    # initialize model class' fields variable and stuff it with the defined fields
+    item.fields = {}
     for field_name in dir(item):
-      attr = item.__getattribute__(field_name)
+      attr = getattr(item, field_name)
       if isinstance(attr, MongoField):
         item.fields[field_name] = attr
+
+# execute deferred functions
+for func in deferred_funcs:
+  func()
