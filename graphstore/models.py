@@ -1,5 +1,4 @@
-import bson
-# import json
+from bson import ObjectId
 from pymongo import MongoClient
 
 
@@ -13,17 +12,12 @@ class MongoModel:
   def __init__(self, _database=None, _collection=None, **kwargs):
     self.DATABASE = _database or self.__class__.DATABASE
     if not self.DATABASE:
-      raise ValueError("Either MongoModel.DATABASE or _database must not be None.")
+      raise ValueError("Either MongoModel.DATABASE or _database must not be None. Use MongoModel.set_database.")
 
-    self.COLLECTION = _collection or str(self.__class__).split('.')[-1][:-2].lower()  # default: the class name lowercased
+    self.COLLECTION = _collection or self.__class__.default_collection_name()
 
-    for field_name in dir(self):
-      attr = self.__getattribute__(field_name)
-      if isinstance(attr, MongoField):
-        if field_name in kwargs:
-          attr.value = kwargs[field_name]
-
-        self.fields[field_name] = attr
+    for key, value in kwargs.items():
+      self.__setattr__(key, value)
 
   @classmethod
   def connect(cls, uri, port, username=None, password=None, auth_source="admin", auth_mechanism="SCRAM-SHA-1"):
@@ -51,6 +45,10 @@ class MongoModel:
       self.fields[name].value = new_value
     else:
       super().__setattr__(name, new_value)
+
+  @classmethod
+  def default_collection_name(cls):
+    return str(cls).split('.')[-1][:-2].lower()  # the class name lowercased
 
   def save(self):
     if not self.CLIENT:
@@ -91,24 +89,39 @@ class MongoModel:
   def serialize(self):
     return {field_name: field.serialize() for field_name, field in self.fields.items()}
 
-  def deserialize(self, data):
+  @classmethod
+  def deserialize(cls, data):
     if not isinstance(data, dict):
       raise ValueError("Data must be a dict, not a {}".format(type(data)))
 
     errors = {}
+    deserialized_data = {}
 
     for key, value in data.items():
-      if key not in self.fields:
+      if key not in cls.fields:
         errors[key] = "{} is not a field on this model.".format(key)
         continue
 
       try:
-        self.fields[key].deserialize(value)
+        deserialized_data[key].deserialize(value)
       except ValueError as e:
         errors[key] = e.args[0]
 
     if errors:
       raise ValueError("Errors during deserialization: {}".format(errors))
+
+    return cls(deserialized_data)
+
+  @classmethod
+  def find_one(cls, object_id):
+    if not cls.CLIENT:
+      raise ValueError("Must be connected to Mongo.")
+
+    if isinstance(object_id, str):
+      object_id = ObjectId(object_id)
+
+    doc = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find_one({'_id': object_id})
+    return cls.deserialize(doc)
 
 
 class MongoField:
@@ -130,8 +143,11 @@ class MongoField:
   def serialize(self):
     return str(self.value)
 
-  def deserialize(self, data):
-    self.set(data)
+  @classmethod
+  def deserialize(cls, data):
+    ret = cls(default=cls.clean(data))
+    ret.validate()
+    return ret
 
 
 # ## Specialized fields
@@ -192,8 +208,9 @@ class ListField(MongoField):
   def serialize(self):
     return [element.serialize() for element in self.value]
 
-  def deserialize(self):
-    pass
+  # @classmethod
+  # def deserialize(cls):
+  #   pass
 
 
 class EnumField(MongoField):
@@ -204,7 +221,7 @@ class EnumField(MongoField):
   def validate(self):
     super().validate()
 
-    if not self.value in allowed:
+    if self.value not in self.allowed:
       raise ValueError("Value is {} but it must be one of {}.".format(self.value, self.allowed))
 
 
@@ -219,8 +236,8 @@ class ModelField(MongoField):
   def validate(self):
     super().validate()
 
-    if not isinstance(self.value, bson.ObjectId):
-      raise ValueError("Value must be {}, not {}.".format(bson.ObjectId, type(self.value)))
+    if not isinstance(self.value, ObjectId):
+      raise ValueError("Value must be {}, not {}.".format(ObjectId, type(self.value)))
 
 
 # ## Node-related models
@@ -243,3 +260,19 @@ class Graph(MongoModel):
   explanation = StringField(default="")
   links = ListField(ModelField(Link))
   nodes = ListField(ModelField(Node))
+
+
+# ## Hacky stuff
+
+
+for key, item in locals().items():
+  if isinstance(item, MongoModel):
+    # Set each class' COLLECTION variable if it is not already set
+    if not item.COLLECTION:
+      item.COLLECTION = item.default_collection_name()
+
+    # initialize model class' fields variable
+    for field_name in dir(item):
+      attr = item.__getattribute__(field_name)
+      if isinstance(attr, MongoField):
+        item.fields[field_name] = attr
