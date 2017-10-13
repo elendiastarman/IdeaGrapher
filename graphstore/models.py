@@ -120,17 +120,21 @@ class MongoModel:
     return cls(deserialized_data)
 
   @classmethod
-  def find_one(cls, object_id):
+  def find_one(cls, query):
     if not cls.CLIENT:
       raise ValueError("Must be connected to Mongo.")
 
+    print("Collection:", cls.CLIENT[cls.DATABASE][cls.COLLECTION])
+    doc = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find_one(query)
+    print("doc:", doc)
+    return cls.deserialize(doc)
+
+  @classmethod
+  def get_by_id(cls, object_id):
     if isinstance(object_id, str):
       object_id = ObjectId(object_id)
 
-    print("Collection:", cls.CLIENT[cls.DATABASE][cls.COLLECTION])
-    doc = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find_one({'_id': object_id})
-    print("doc:", doc)
-    return cls.deserialize(doc)
+    return cls.find_one({'_id': object_id})
 
 
 class MongoField:
@@ -153,8 +157,7 @@ class MongoField:
   def serialize(self):
     return str(self.value)
 
-  @classmethod
-  def deserialize(cls, data):
+  def deserialize(self, data):
     return data
     # ret = cls(default=cls.clean(data))
     # ret.validate()
@@ -217,11 +220,10 @@ class ListField(MongoField):
       raise ValueError("Not all elements were {}; bad elements: {}".format(self.field_class, errors))
 
   def serialize(self):
-    return [element.serialize() for element in self.value]
+    return [item.serialize() if isinstance(self.field_class, ModelField) else str(item) for item in self.value]
 
-  # @classmethod
-  # def deserialize(cls):
-  #   pass
+  def deserialize(self, data):
+    return [self.field_class.deserialize(data) if isinstance(self.field_class, ModelField) else self.field_class(item) for item in data]
 
 
 class EnumField(MongoField):
@@ -249,7 +251,14 @@ class ModelField(MongoField):
     super().validate()
 
     if not isinstance(self.value, self.model_class):
-      raise ValueError("Value must be {}, not {}.".format(self.model_class, type(self.value)))
+      raise ValueError("Value must be of type {}, not {}.".format(self.model_class, type(self.value)))
+
+  def serialize(self):
+    self.value.save()
+    return self.value.id
+
+  def deserialize(self, data):
+    return self.model_class.deserialize(data)
 
 
 # ## Node-related models
