@@ -13,6 +13,10 @@ class MongoModel:
   _id = None
 
   def __init__(self, _database=None, _collection=None, **kwargs):
+    self.fields = {}
+    for name, field in self.__class__.fields.items():
+      self.fields[name] = field.copy()
+
     self.DATABASE = _database or self.__class__.DATABASE
     if not self.DATABASE:
       raise ValueError("Either MongoModel.DATABASE or _database must not be None. Use MongoModel.set_database.")
@@ -117,16 +121,14 @@ class MongoModel:
     if errors:
       raise ValueError("Errors during deserialization: {}".format(errors))
 
-    return cls(deserialized_data)
+    return cls(**deserialized_data)
 
   @classmethod
   def find_one(cls, query):
     if not cls.CLIENT:
       raise ValueError("Must be connected to Mongo.")
 
-    print("Collection:", cls.CLIENT[cls.DATABASE][cls.COLLECTION])
     doc = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find_one(query)
-    print("doc:", doc)
     return cls.deserialize(doc)
 
   @classmethod
@@ -138,9 +140,24 @@ class MongoModel:
 
 
 class MongoField:
-  def __init__(self, default=None, nullable=False):
-    self.value = default
-    self.nullable = nullable
+  config = None
+
+  def __init__(self, **kwargs):
+    kwargs.setdefault('default', None)
+    kwargs.setdefault('nullable', False)
+    self.config = kwargs
+
+    for key, value in kwargs.items():
+      setattr(self, key, value)
+
+    self.value = self.config['default']
+
+  def copy(self):
+    return self.__class__(**self.config.copy())
+
+  def update_config(self, key, new_value):
+    self.config[key] = new_value
+    setattr(self, key, new_value)
 
   def set(self, new_value):
     self.value = self.clean(new_value)
@@ -166,7 +183,9 @@ class MongoField:
 
 # ## Specialized fields
 class IntegerField(MongoField):
-  def __init__(self, min_value=None, max_value=None, **kwargs):
+  def __init__(self, **kwargs):
+    kwargs.setdefault('min_value', None)
+    kwargs.setdefault('max_value', None)
     super().__init__(**kwargs)
 
   def validate(self):
@@ -183,9 +202,9 @@ class IntegerField(MongoField):
 
 
 class StringField(MongoField):
-  def __init__(self, max_length=0, **kwargs):
+  def __init__(self, **kwargs):
+    kwargs.setdefault('max_length', 0)
     super().__init__(**kwargs)
-    self.max_length = max_length
 
   def validate(self):
     super().validate()
@@ -198,11 +217,11 @@ class StringField(MongoField):
 
 
 class ListField(MongoField):
-  def __init__(self, field_class, max_length=0, **kwargs):
+  def __init__(self, field_class, **kwargs):
+    kwargs.setdefault('max_length', 0)
+    kwargs.setdefault('field_class', field_class)
+    kwargs.setdefault('default', [])
     super().__init__(**kwargs)
-    self.max_length = max_length
-    self.field_class = field_class
-    self.value = []
 
   def validate(self):
     super().validate()
@@ -213,7 +232,7 @@ class ListField(MongoField):
     errors = []
 
     for idx, val in enumerate(self.value):
-      if not isinstance(val, self.field_class):
+      if not isinstance(val, self.field_class.model_class if isinstance(self.field_class, ModelField) else self.field_class):
         errors.append((idx, type(val), val))
 
     if errors:
@@ -228,8 +247,8 @@ class ListField(MongoField):
 
 class EnumField(MongoField):
   def __init__(self, allowed, **kwargs):
+    kwargs.setdefault('allowed', allowed)
     super().__init__(**kwargs)
-    self.allowed = allowed
 
   def validate(self):
     super().validate()
@@ -240,12 +259,12 @@ class EnumField(MongoField):
 
 class ModelField(MongoField):
   def __init__(self, model_class, **kwargs):
-    super().__init__(**kwargs)
-
     if isinstance(model_class, str):
-      deferred_funcs.append(lambda: lambda instance, model_cls: setattr(instance, 'model_class', locals()[model_cls])(self, model_class))
+      deferred_funcs.append(lambda: lambda instance, model_cls: instance.update_config('model_class', locals()[model_cls])(self, model_class))
     else:
-      self.model_class = model_class
+      kwargs.setdefault('model_class', model_class)
+
+    super().__init__(**kwargs)
 
   def validate(self):
     super().validate()
@@ -271,8 +290,8 @@ class Node(MongoModel):
 
 class Link(MongoModel):
   kind = EnumField(["connected", "related", "directed"])
-  sources = ListField(MongoField(Node))
-  sinks = ListField(MongoField(Node))
+  sources = ListField(ModelField(Node))
+  sinks = ListField(ModelField(Node))
 
 
 class Graph(MongoModel):
