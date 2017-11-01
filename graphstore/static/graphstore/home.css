@@ -1,0 +1,29 @@
+#main {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+#main > li {
+    display: inline-block;
+    vertical-align: top;
+    width: 30%;
+    min-width: 300px;
+    border: 1px solid white;
+    margin: 0 auto;
+}
+
+#main h2 {
+    text-align: center;
+}
+
+@media screen and (max-width: 700px) {
+    #main > li {
+        display: block;
+        width: 90%;
+        min-width: 90%;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+}

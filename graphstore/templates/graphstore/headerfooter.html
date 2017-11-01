@@ -1,0 +1,44 @@
+{% extends 'graphstore/shell.html' %}
+
+{% load staticfiles %}
+{% block styling %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static 'graphstore/headerfooter.css' %}" />
+{% endblock %}
+
+{% block body %}
+    <div id="header">
+        <!-- {% comment %}
+        {% if not request.user.is_anonymous %}
+            <p style="float:right">Welcome {{request.user.first_name}}! <a href="{% url 'logout' %}">Logout</a></p>
+        {% else %}
+            <p style="float:right"><a href="{% url 'login' %}">Sign in</a> or <a href="{% url 'register' %}">sign up</a>!</p>
+        {% endif %} {% endcomment %}
+        -->
+        
+        <div style="float:left">
+            <ul class="tabs">
+                <li><a href="{% url 'home' %}">LOGO</a></li>
+                <!--<li>Artists</li>-->
+                <!--<li>Items</li>
+                <li>Tags</li>
+                <li>Portfolio</li>
+                <li>About</li>-->
+            </ul>
+        </div>
+    </div>
+    
+    <hr style="clear:both; margin:0"/>
+    
+    {% block content %}{% endblock %}
+    
+    <hr style="clear:both; margin:0;"/>
+    <div id="footer">
+        <p style="width: 90%; margin: 5px auto;">Built and maintained by Starman Innovations.</p>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ block.super }}
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+{% endblock %}

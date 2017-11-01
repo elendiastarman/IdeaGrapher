@@ -1,0 +1,17 @@
+{% extends 'graphstore/headerfooter.html' %}
+
+{% load staticfiles %}
+{% block styling %}
+    {{ block.super }}
+    <link rel="stylesheet" type="text/css" href="{% static 'graphstore/home.css' %}" />
+{% endblock %}
+
+{% block content %}
+    <h1>IdeaGrapher</h1>
+{% endblock %}
+
+{% block scripts %}
+    {{ block.super }}
+    <script type="text/javascript" src="{% static 'graphstore/home.js' %}"></script>
+    <script type="text/javascript">window.CSRF_TOKEN = "{{ csrf_token }}";</script>
+{% endblock %}

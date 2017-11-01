@@ -1,0 +1,29 @@
+{% extends 'products/headerfooter.html' %}
+
+{% load staticfiles %}
+
+{% block content %}
+    <h2>Welcome back!</h2>
+    
+    <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+        <table>
+            {% for field in login_form %}
+                <tr>
+                    <td>{{ field.label_tag }}</td>
+                    <td>{{ field }}</td>
+                    {% if field.errors %}
+                        <td class="error">{{ field.errors }}</td>
+                    {% else %}
+                        <td class="help">{{ field.help_text }}</td>
+                    {% endif %}
+                </tr>
+            {% endfor %}
+        </table>
+
+        <input type="submit" value="login" />
+        {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+    </form>
+    
+    <p><em>Meant to <a href="{% url 'register' %}">sign up</a>?</em></p>
+{% endblock %}

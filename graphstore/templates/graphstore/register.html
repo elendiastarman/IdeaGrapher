@@ -1,0 +1,29 @@
+{% extends 'products/headerfooter.html' %}
+
+{% load staticfiles %}
+
+{% block content %}
+    <h2>Not a member yet?</h2>
+    
+    <form method="post" action="{% url 'register' %}">
+        {% csrf_token %}
+        <table>
+            {% for field in reg_form %}
+                <tr>
+                    <td>{{ field.label_tag }}</td>
+                    <td>{{ field }}</td>
+                    {% if field.errors %}
+                        <td class="error">{{ field.errors }}</td>
+                    {% else %}
+                        <td class="help">{{ field.help_text }}</td>
+                    {% endif %}
+                </tr>
+            {% endfor %}
+        </table>
+
+        <input type="submit" value="register" />
+        {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+    </form>
+    
+    <p><em>Meant to <a href="{% url 'login' %}">sign in</a>?</em></p>
+{% endblock %}
