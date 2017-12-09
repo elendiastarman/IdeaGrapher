@@ -100,7 +100,7 @@ class MongoModel:
   @classmethod
   def deserialize(cls, data):
     if not isinstance(data, dict):
-      raise ValueError("Data must be a dict, not a {}".format(type(data)))
+      raise ValueError("Data ({}) for model {} must be a dict, not a {}".format(data, cls, type(data)))
 
     errors = {}
     deserialized_data = {}
@@ -114,6 +114,7 @@ class MongoModel:
         continue
 
       try:
+        # import ipdb; ipdb.set_trace()
         deserialized_data[key] = cls.fields[key].deserialize(value)
       except ValueError as e:
         errors[key] = e.args[0]
@@ -122,6 +123,15 @@ class MongoModel:
       raise ValueError("Errors during deserialization: {}".format(errors))
 
     return cls(**deserialized_data)
+
+  @classmethod
+  def find(cls, query={}):
+    if not cls.CLIENT:
+      raise ValueError("Must be connected to Mongo.")
+
+    docs = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find(query)
+    print("documents:", [doc for doc in docs])
+    return [cls.deserialize(doc) for doc in docs]
 
   @classmethod
   def find_one(cls, query):
@@ -242,7 +252,7 @@ class ListField(MongoField):
     return [item.serialize() if isinstance(self.field_class, ModelField) else str(item) for item in self.value]
 
   def deserialize(self, data):
-    return [self.field_class.deserialize(data) if isinstance(self.field_class, ModelField) else self.field_class(item) for item in data]
+    return [self.field_class.deserialize(item) if isinstance(self.field_class, ModelField) else self.field_class(item) for item in data]
 
 
 class EnumField(MongoField):
@@ -259,6 +269,7 @@ class EnumField(MongoField):
 
 class ModelField(MongoField):
   def __init__(self, model_class, **kwargs):
+    print("ModelField kwargs:", kwargs)
     if isinstance(model_class, str):
       deferred_funcs.append(lambda: lambda instance, model_cls: instance.update_config('model_class', locals()[model_cls])(self, model_class))
     else:
@@ -277,7 +288,8 @@ class ModelField(MongoField):
     return self.value.id
 
   def deserialize(self, data):
-    return self.model_class.deserialize(data)
+    # return self.model_class.deserialize(data)
+    return model_refs.get_or_make_ref(self.model_class, self.value.id, data)
 
 
 # ## Node-related models
@@ -304,11 +316,35 @@ class Graph(MongoModel):
 
 # ## Hacky stuff
 
+class ModelRefs:
+  def __init__(self):
+    self.models = {}
+
+  def add_model(self, model_class):
+    self.models[model_class] = {}
+
+  def get_or_make_ref(self, model_class, id, data):
+    # key = model_class.__name__ if isinstance(model_class, type) and issubclass(model_class, MongoModel) else model_class
+    # if '_id' in data:
+    #   key = data['_id']
+    # else:
+    #   raise ValueError("Attempted to get/make reference for {} instance with no '_id' in this data: {}".format(model_class, data))
+    key = str(id)
+
+    if key in self.models[model_class]:
+      return self.models[model_class][key]
+    else:
+      return self.models[model_class].setdefault(key, model_class.deserialize(data))
+
+model_refs = ModelRefs()
+
 frozen_locals = locals().copy()
 for key, item in frozen_locals.items():
   if isinstance(item, type) and issubclass(item, MongoModel):
     # Set each class' COLLECTION variable
     item.COLLECTION = item.default_collection_name()
+
+    model_refs.add_model(item)
 
     # initialize model class' fields variable and stuff it with the defined fields
     item.fields = {}

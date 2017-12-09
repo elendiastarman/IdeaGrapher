@@ -8,6 +8,14 @@
 
 {% block content %}
     <h1>IdeaGrapher</h1>
+
+    {% for node in nodes %}
+    	<p>{{node.serialize}}</p>
+    {% endfor %}
+
+    {% for link in links %}
+    	<p>{{link.serialize}}</p>
+    {% endfor %}
 {% endblock %}
 
 {% block scripts %}
