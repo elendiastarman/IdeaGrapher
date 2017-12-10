@@ -1,4 +1,5 @@
 from graphstore.models import *
+from bson import ObjectId
 MongoModel.set_database("test")
 MongoModel.connect("localhost", 27017)
 
@@ -6,24 +7,30 @@ n1_shortname = "testnode1"
 n2_shortname = "testnode2"
 
 try:
-  n1 = Node.find_one(n1_shortname)
+  n1 = Node.find_one({'shortname': n1_shortname})
 except:
   n1 = Node(shortname="testnode1")
   n1.save()
 
 try:
-  n2 = Node.find_one(n2_shortname)
+  n2 = Node.find_one({'shortname': n2_shortname})
 except:
   n2 = Node(shortname="testnode2")
   n2.save()
 
 assert n1.shortname != n2.shortname
 
-l1_shortname = "testlink1"
-
 try:
-  l1 = Link.find_one(l1_shortname)
-except:
-  import ipdb; ipdb.set_trace()
+  l1 = Link.find_one({'sources': [n1.id], 'sinks': [n2.id]})
+  assert l1.sources[0] == n1
+  assert l1.sinks[0] == n2
+except ObjectNotFound:
   l1 = Link(kind="connected", sources=[n1], sinks=[n2])
   l1.save()
+
+  try:
+    l2 = Link.find_one({'_id': ObjectId(l1.id)})
+    assert l2.sources[0] == n1
+    assert l2.sinks[0] == n2
+  except AssertionError:
+    import ipdb; ipdb.set_trace()

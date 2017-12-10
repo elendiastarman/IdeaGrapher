@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.http import Http404
 from graphstore.models import MongoModel, Node, Link
 
 
@@ -15,3 +16,6 @@ def home_view(request, **kwargs):
   context['links'] = Link.find({})
 
   return render(request, 'graphstore/home.html', context)
+
+def favicon(request, **kwargs):
+  raise Http404()

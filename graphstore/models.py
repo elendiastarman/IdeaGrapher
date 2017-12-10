@@ -71,6 +71,7 @@ class MongoModel:
     if not self._id:
       result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(self.serialize())
       self._id = result.inserted_id
+      model_refs.get_or_make_ref(self.__class__, self._id, obj=self)
     else:
       changed = self.changed()
       if changed:
@@ -114,7 +115,6 @@ class MongoModel:
         continue
 
       try:
-        # import ipdb; ipdb.set_trace()
         deserialized_data[key] = cls.fields[key].deserialize(value)
       except ValueError as e:
         errors[key] = e.args[0]
@@ -122,7 +122,10 @@ class MongoModel:
     if errors:
       raise ValueError("Errors during deserialization: {}".format(errors))
 
-    return cls(**deserialized_data)
+    obj = cls(**deserialized_data)
+    obj._id = data['_id']
+
+    return obj
 
   @classmethod
   def find(cls, query={}):
@@ -130,8 +133,8 @@ class MongoModel:
       raise ValueError("Must be connected to Mongo.")
 
     docs = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find(query)
-    print("documents:", [doc for doc in docs])
-    return [cls.deserialize(doc) for doc in docs]
+
+    return [model_refs.get_or_make_ref(cls, id=doc['_id'], data=doc) for doc in docs]
 
   @classmethod
   def find_one(cls, query):
@@ -139,7 +142,10 @@ class MongoModel:
       raise ValueError("Must be connected to Mongo.")
 
     doc = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find_one(query)
-    return cls.deserialize(doc)
+    if doc is None:
+      raise ObjectNotFound("No {} was found with query {}.".format(cls, query))
+
+    return model_refs.get_or_make_ref(cls, id=doc['_id'], data=doc)
 
   @classmethod
   def get_by_id(cls, object_id):
@@ -249,10 +255,16 @@ class ListField(MongoField):
       raise ValueError("Not all elements were {}; bad elements: {}".format(self.field_class, errors))
 
   def serialize(self):
-    return [item.serialize() if isinstance(self.field_class, ModelField) else str(item) for item in self.value]
+    if isinstance(self.field_class, ModelField):
+      return [item.id for item in self.value]
+    else:
+      return [str(item) for item in self.value]
 
   def deserialize(self, data):
-    return [self.field_class.deserialize(item) if isinstance(self.field_class, ModelField) else self.field_class(item) for item in data]
+    if isinstance(self.field_class, ModelField):
+      return [model_refs.get_or_make_ref(self.field_class.model_class, item) for item in data]
+    else:
+      return [self.field_class(item) for item in data]
 
 
 class EnumField(MongoField):
@@ -269,7 +281,6 @@ class EnumField(MongoField):
 
 class ModelField(MongoField):
   def __init__(self, model_class, **kwargs):
-    print("ModelField kwargs:", kwargs)
     if isinstance(model_class, str):
       deferred_funcs.append(lambda: lambda instance, model_cls: instance.update_config('model_class', locals()[model_cls])(self, model_class))
     else:
@@ -277,19 +288,10 @@ class ModelField(MongoField):
 
     super().__init__(**kwargs)
 
-  def validate(self):
-    super().validate()
 
-    if not isinstance(self.value, self.model_class):
-      raise ValueError("Value must be of type {}, not {}.".format(self.model_class, type(self.value)))
-
-  def serialize(self):
-    self.value.save()
-    return self.value.id
-
-  def deserialize(self, data):
-    # return self.model_class.deserialize(data)
-    return model_refs.get_or_make_ref(self.model_class, self.value.id, data)
+# ## Custom error classes
+class ObjectNotFound(ValueError):
+  pass
 
 
 # ## Node-related models
@@ -323,7 +325,7 @@ class ModelRefs:
   def add_model(self, model_class):
     self.models[model_class] = {}
 
-  def get_or_make_ref(self, model_class, id, data):
+  def get_or_make_ref(self, model_class, id, data=None, obj=None):
     # key = model_class.__name__ if isinstance(model_class, type) and issubclass(model_class, MongoModel) else model_class
     # if '_id' in data:
     #   key = data['_id']
@@ -331,10 +333,21 @@ class ModelRefs:
     #   raise ValueError("Attempted to get/make reference for {} instance with no '_id' in this data: {}".format(model_class, data))
     key = str(id)
 
+    if model_class is None:
+      raise ValueError("model_class is None and it should not be.")
+    elif model_class not in self.models:
+      raise ValueError("model_class {} is somehow unknown. (Was it added with add_model?)".format(model_class))
+
     if key in self.models[model_class]:
       return self.models[model_class][key]
     else:
-      return self.models[model_class].setdefault(key, model_class.deserialize(data))
+      if obj is None:
+        if data is None:
+          obj = model_class.get_by_id(id)
+        else:
+          obj = model_class.deserialize(data)
+
+      return self.models[model_class].setdefault(key, obj)
 
 model_refs = ModelRefs()
 

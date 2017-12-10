@@ -18,5 +18,6 @@ from django.conf.urls import url  # , include
 from graphstore.views import *
 
 urlpatterns = [
+    url(r'favicon.*', favicon),
     url(r'', home_view, name='home'),
 ]
