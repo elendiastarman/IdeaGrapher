@@ -9,13 +9,27 @@
 {% block content %}
     <h1>IdeaGrapher</h1>
 
-    {% for node in nodes %}
-    	<p>{{node.serialize}}</p>
-    {% endfor %}
+    <svg id="display"></svg>
 
-    {% for link in links %}
-    	<p>{{link.serialize}}</p>
-    {% endfor %}
+    <div id="data" hidden>
+    	<div id="nodes">
+		    {% for node in nodes %}
+		    	<p>{{node.json}}</p>
+		    {% endfor %}
+		</div>
+
+		<div id="links">
+		    {% for link in links %}
+		    	<p>{{link.json}}</p>
+		    {% endfor %}
+		</div>
+
+		<div id="graphs">
+		    {% for graph in graphs %}
+		    	<p>{{graph.json}}</p>
+		    {% endfor %}
+		</div>
+	</div>
 {% endblock %}
 
 {% block scripts %}

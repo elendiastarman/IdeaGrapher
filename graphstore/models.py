@@ -1,5 +1,6 @@
 from bson import ObjectId
 from pymongo import MongoClient
+import json
 
 deferred_funcs = []  # for e.g. resolving circular dependencies
 
@@ -97,6 +98,14 @@ class MongoModel:
 
   def serialize(self):
     return {field_name: field.serialize() for field_name, field in self.fields.items()}
+
+  def serialize_with_id(self):
+    data = self.serialize()
+    data['id'] = self.id
+    return data
+
+  def json(self):
+    return json.dumps(self.serialize_with_id())
 
   @classmethod
   def deserialize(cls, data):
