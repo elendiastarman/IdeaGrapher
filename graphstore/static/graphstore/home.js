@@ -100,7 +100,7 @@ function draw() {
 	  .attr('fill', 'gray')
 	  .attr('cx', function(d){ return vertices[d]['x']; })
 	  .attr('cy', function(d){ return vertices[d]['y']; })
-	  .attr('r', 50)
+	  .attr('r', function(d){ return parseFloat(vertices[d]['node']['size']) / 10; })
 	  .attr('stroke', 'black')
 	  .attr('stroke-wdith', '1px');
 	vGroup.append('text')

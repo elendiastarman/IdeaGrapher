@@ -226,6 +226,31 @@ class IntegerField(MongoField):
       raise ValueError("Maximum value is {}; actual value is {}.".format(self.max_value, self.value))
 
 
+class FloatField(MongoField):
+  def __init__(self, **kwargs):
+    kwargs.setdefault('min_value', None)
+    kwargs.setdefault('max_value', None)
+    kwargs.setdefault('step', None)
+    super().__init__(**kwargs)
+
+  def validate(self):
+    super().validate()
+
+    if not isinstance(self.value, float):
+      raise ValueError("Value must be {}, not {}.".format(float, type(self.value)))
+
+    if self.min_value and self.value < self.min_value:
+      raise ValueError("Minimum value is {}; actual value is {}.".format(self.min_value, self.value))
+
+    if self.max_value and self.value > self.max_value:
+      raise ValueError("Maximum value is {}; actual value is {}.".format(self.max_value, self.value))
+
+    # TODO: should I really always "round" the value?
+    # TODO: handles negative values wrong
+    if self.step:
+      self.value = self.value - ((self.value + self.step / 2) % self.step) + self.step / 2
+
+
 class StringField(MongoField):
   def __init__(self, **kwargs):
     kwargs.setdefault('max_length', 0)
@@ -309,12 +334,15 @@ class Node(MongoModel):
   blurb = StringField(max_length=200, default="")
   explanation = StringField(default="")
   subgraph = ListField(ModelField('Graph'))
+  size = FloatField(min_value=1, step=0.1, default=5)
 
 
 class Link(MongoModel):
   kind = EnumField(["connected", "related", "directed"])
   sources = ListField(ModelField(Node))
   sinks = ListField(ModelField(Node))
+  strength = FloatField(min_value=0.1, step=0.1, default=1)
+  closeness = FloatField(min_value=0.1, step=0.1, default=1)
 
 
 class Graph(MongoModel):
