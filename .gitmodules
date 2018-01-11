@@ -1,0 +1,3 @@
+[submodule "mathbox"]
+	path = mathbox
+	url = https://gitgud.io/unconed/mathbox.git
