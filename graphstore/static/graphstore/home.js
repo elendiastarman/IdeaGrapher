@@ -108,6 +108,7 @@ function syncDataAndGraphics() {
 			'node': nodes[id],
 			'x': Math.random() * 400 - 200,
 			'y': Math.random() * 400 - 200,
+			'z': Math.random() * 400 - 200,
 		};
 	});
 
@@ -196,7 +197,7 @@ function stepPhysics() {
 	var logger = [false, false];
 
 	for(nid in nodes) {
-		cumulativeOffset[nid] = [0, 0];
+		cumulativeOffset[nid] = [0, 0, 0];
 	}
 
 	for(pairId in pairs) {
@@ -212,13 +213,16 @@ function stepPhysics() {
 
 		cumulativeOffset[nids[0]][0] += offset[0];
 		cumulativeOffset[nids[0]][1] += offset[1];
-		cumulativeOffset[nids[1]][0] += offset[2];
-		cumulativeOffset[nids[1]][1] += offset[3];
+		cumulativeOffset[nids[0]][2] += offset[2];
+		cumulativeOffset[nids[1]][0] += offset[3];
+		cumulativeOffset[nids[1]][1] += offset[4];
+		cumulativeOffset[nids[1]][2] += offset[5];
 	}
 
 	for(nid in nodes) {
 		vertices[nid]['x'] += cumulativeOffset[nid][0];
 		vertices[nid]['y'] += cumulativeOffset[nid][1];
+		vertices[nid]['z'] += cumulativeOffset[nid][2];
 	}
 }
 
@@ -227,19 +231,23 @@ function displace(n1id, n2id, link) {
 	var strengthMultiplier = 1;
 	var n1x = vertices[n1id]['x'],
 	    n1y = vertices[n1id]['y'],
+	    n1z = vertices[n1id]['z'],
 	    n2x = vertices[n2id]['x'],
-	    n2y = vertices[n2id]['y'];
+	    n2y = vertices[n2id]['y'],
+	    n2z = vertices[n2id]['z'];
 
-	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2));
+	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2) + Math.pow(n1z - n2z, 2));
 	var diff = link['closeness'] * closenessMultiplier - dist;
 	var force = diff * link['strength'] * strengthMultiplier * twiddle;
 
 	var off1x = force * (n1x - n2x) / dist,
 		off1y = force * (n1y - n2y) / dist,
+		off1z = force * (n1z - n2z) / dist,
 		off2x = force * (n2x - n1x) / dist,
-		off2y = force * (n2y - n1y) / dist;
+		off2y = force * (n2y - n1y) / dist,
+		off2z = force * (n2z - n1z) / dist;
 
-	return [off1x, off1y, off2x, off2y];
+	return [off1x, off1y, off1z, off2x, off2y, off2z];
 }
 
 function antigravity(n1id, n2id) {
@@ -247,24 +255,28 @@ function antigravity(n1id, n2id) {
 	var strengthMultiplier = 1;
 	var n1x = vertices[n1id]['x'],
 	    n1y = vertices[n1id]['y'],
+	    n1z = vertices[n1id]['z'],
 	    n2x = vertices[n2id]['x'],
-	    n2y = vertices[n2id]['y'];
+	    n2y = vertices[n2id]['y'],
+	    n2z = vertices[n2id]['z'];
 
-	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2));
+	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2) + Math.pow(n1z - n2z, 2));
 	// var diff = link['closeness'] * closenessMultiplier - dist;
 	// var force = diff * link['strength'] * strengthMultiplier;
 	var force = 10 * twiddle / Math.sqrt(dist);
 
 	var off1x = force * (n1x - n2x) / dist,
 		off1y = force * (n1y - n2y) / dist,
+		off1z = force * (n1z - n2z) / dist,
 		off2x = force * (n2x - n1x) / dist,
-		off2y = force * (n2y - n1y) / dist;
+		off2y = force * (n2y - n1y) / dist,
+		off2z = force * (n2z - n1z) / dist;
 
-	return [off1x, off1y, off2x, off2y];
+	return [off1x, off1y, off1z, off2x, off2y, off2z];
 }
 
 function dis(x1, y1, x2, y2) {
-	return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+	return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2) + Math.pow(z1 - z2, 2));
 }
 
 function handleMouseDown(d, i) {
