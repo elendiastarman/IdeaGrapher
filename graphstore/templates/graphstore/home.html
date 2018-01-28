@@ -9,7 +9,7 @@
 {% block content %}
     <h1>IdeaGrapher</h1>
 
-    <svg id="display"></svg>
+    <p id="display" style="height: 1000px"></p>
 
     <br/><br/>
 
@@ -40,6 +40,7 @@
 
 {% block scripts %}
     {{ block.super }}
+    <script type="text/javascript" src="{% static 'mathbox-bundle.js' %}"></script>
     <script type="text/javascript" src="{% static 'graphstore/home.js' %}"></script>
     <script type="text/javascript">window.CSRF_TOKEN = "{{ csrf_token }}";</script>
 {% endblock %}

@@ -1,7 +1,8 @@
 "use strict;"
 
 var svg = d3.select('#display');
-var field;
+var field,
+    mathbox, three, view;
 
 var width = 1600,
     height = 1200;
@@ -21,16 +22,34 @@ $(document).ready(function(){ init(); });
 function init() {
 	load_data();
 
-	svg.attr('width', width).attr('height', height).style('border', '1px solid black');
-	svg.append('rect')
-	  .attr('id', 'background')
-	  .attr('width', width)
-	  .attr('height', height)
-	  .attr('fill', 'white');
+	// svg.attr('width', width).attr('height', height).style('border', '1px solid black');
+	// svg.append('rect')
+	//   .attr('id', 'background')
+	//   .attr('width', width)
+	//   .attr('height', height)
+	//   .attr('fill', 'white');
 
-	field = svg.append('g')
-	  .attr('id', 'field')
-	  .attr('transform', 'translate(' + (width/2) + ', ' + (height/2) + ')');
+	mathbox = mathBox({
+		element: document.querySelector('#display'),
+		plugins: ['core', 'controls', 'cursor'],
+		controls: {
+			klass: THREE.TrackballControls,
+		},
+	});
+	if(mathbox.fallback) throw "WebGL not supported";
+
+	three = mathbox.three;
+	three.camera.position.set(0, 0, 3);
+	three.renderer.setClearColor(new THREE.Color(0xFFFFFF), 1.0);
+
+	view = mathbox.cartesian({
+		range: [[-100, 100], [-100, 100], [-100, 100]],
+		scale: [1, 1, 1],
+	});
+
+	// field = svg.append('g')
+	//   .attr('id', 'field')
+	//   .attr('transform', 'translate(' + (width/2) + ', ' + (height/2) + ')');
 
 	syncDataAndGraphics();
 
@@ -112,6 +131,20 @@ function syncDataAndGraphics() {
 		};
 	});
 
+	view.array({
+		id: "nodes",
+		width: nodeIds.length,
+		expr: function(emit, i) {
+			var v = vertices[nodeIds[i]];
+			emit(v.x, v.y, v.z);
+		},
+		channels: 3,
+	});
+	view.point({
+		color: 0x666666,
+		size: 50,
+	});
+
 	linkIds.forEach(function(id) {
 		edges[id] = {
 			'link': links[id],
@@ -119,56 +152,76 @@ function syncDataAndGraphics() {
 			'end': vertices[links[id]['sinks'][0]['id']],
 		};
 	});
+
+	view.array({
+		id: "edges",
+		width: linkIds.length,
+		expr: function(emit, i) {
+			var e = edges[linkIds[i]];
+			var v1 = e['start'];
+			var v2 = e['end'];
+			emit(v1.x, v1.y, v1.z);
+			emit(v2.x, v2.y, v2.z);
+		},
+		channels: 3,
+		items: 2,
+	});
+	view.vector({
+		end: true,
+		color: 0x000000,
+		size: 10,
+		depth: 50,
+	});
 }
 
 function drawSync() {
-	var eData = field.selectAll('.link').data(linkIds);
-	var eGroup = eData.enter().append('g')
-	  .attr('class', 'link')
-	  .attr('id', function(d){ return d; });
-	eGroup.append('line')
-	  .attr('stroke', 'black')
-	  .attr('stroke-wdith', '2px');
+	// var eData = field.selectAll('.link').data(linkIds);
+	// var eGroup = eData.enter().append('g')
+	//   .attr('class', 'link')
+	//   .attr('id', function(d){ return d; });
+	// eGroup.append('line')
+	//   .attr('stroke', 'black')
+	//   .attr('stroke-wdith', '2px');
 
-	eData.exit().remove();
+	// eData.exit().remove();
 
-	var vData = field.selectAll('.node').data(nodeIds);
-	var vEnterGroup = vData.enter().append('g')
-	  .attr('class', 'node')
-	  .attr('id', function(d){ return d; });
-	vEnterGroup.append('circle')
-	  .attr('fill', 'gray')
-	  .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['size'])); })
-	  .attr('stroke', 'black')
-	  .attr('stroke-wdith', '1px');
-	vEnterGroup.append('text')
-	  .text(function(d){ return nodes[d]['shortname']})
-	  .attr('x', function(d){ return vertices[d]['x']; })
-	  .attr('y', function(d){ return vertices[d]['y']; })
-	  .attr('color', 'black')
-	  .attr('text-anchor', 'middle')
-	  .attr('alignment-baseline', 'central');
+	// var vData = field.selectAll('.node').data(nodeIds);
+	// var vEnterGroup = vData.enter().append('g')
+	//   .attr('class', 'node')
+	//   .attr('id', function(d){ return d; });
+	// vEnterGroup.append('circle')
+	//   .attr('fill', 'gray')
+	//   .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['size'])); })
+	//   .attr('stroke', 'black')
+	//   .attr('stroke-wdith', '1px');
+	// vEnterGroup.append('text')
+	//   .text(function(d){ return nodes[d]['shortname']})
+	//   .attr('x', function(d){ return vertices[d]['x']; })
+	//   .attr('y', function(d){ return vertices[d]['y']; })
+	//   .attr('color', 'black')
+	//   .attr('text-anchor', 'middle')
+	//   .attr('alignment-baseline', 'central');
 
-	vData.exit().remove()
+	// vData.exit().remove()
 
-	draw();
+	// draw();
 }
 
 function draw() {
-	var vData = field.selectAll('.node');
-	vData.selectAll('circle')
-	  .attr('cx', function(d){ return vertices[d]['x']; })
-	  .attr('cy', function(d){ return vertices[d]['y']; });
-	vData.selectAll('text')
-	  .attr('x', function(d){ return vertices[d]['x']; })
-	  .attr('y', function(d){ return vertices[d]['y']; });
+	// var vData = field.selectAll('.node');
+	// vData.selectAll('circle')
+	//   .attr('cx', function(d){ return vertices[d]['x']; })
+	//   .attr('cy', function(d){ return vertices[d]['y']; });
+	// vData.selectAll('text')
+	//   .attr('x', function(d){ return vertices[d]['x']; })
+	//   .attr('y', function(d){ return vertices[d]['y']; });
 
-	var eData = field.selectAll('.link');
-	eData.selectAll('line')
-	  .attr('x1', function(d){ return edges[d]['start']['x']; })
-	  .attr('y1', function(d){ return edges[d]['start']['y']; })
-	  .attr('x2', function(d){ return edges[d]['end']['x']; })
-	  .attr('y2', function(d){ return edges[d]['end']['y']; });
+	// var eData = field.selectAll('.link');
+	// eData.selectAll('line')
+	//   .attr('x1', function(d){ return edges[d]['start']['x']; })
+	//   .attr('y1', function(d){ return edges[d]['start']['y']; })
+	//   .attr('x2', function(d){ return edges[d]['end']['x']; })
+	//   .attr('y2', function(d){ return edges[d]['end']['y']; });
 }
 
 var loopTimer;
@@ -263,7 +316,7 @@ function antigravity(n1id, n2id) {
 	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2) + Math.pow(n1z - n2z, 2));
 	// var diff = link['closeness'] * closenessMultiplier - dist;
 	// var force = diff * link['strength'] * strengthMultiplier;
-	var force = 10 * twiddle / Math.sqrt(dist);
+	var force = 10 * twiddle / Math.pow(dist, 1./2);
 
 	var off1x = force * (n1x - n2x) / dist,
 		off1y = force * (n1y - n2y) / dist,

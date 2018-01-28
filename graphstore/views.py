@@ -17,5 +17,6 @@ def home_view(request, **kwargs):
 
   return render(request, 'graphstore/home.html', context)
 
+
 def favicon(request, **kwargs):
   raise Http404()
