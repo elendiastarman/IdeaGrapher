@@ -3,8 +3,12 @@
 var svg = d3.select('#display');
 var field;
 
-var width = 1600,
-    height = 1200;
+var width = 1200,
+    height = 900,
+    fieldX = width/2,
+    fieldY = height/2,
+    newFieldX = fieldX,
+    newFieldY = fieldY;
 
 var nodes = {}
     nodeIds = [],
@@ -30,7 +34,7 @@ function init() {
 
 	field = svg.append('g')
 	  .attr('id', 'field')
-	  .attr('transform', 'translate(' + (width/2) + ', ' + (height/2) + ')');
+	  .attr('transform', 'translate(' + (fieldX) + ', ' + (fieldY) + ')');
 
 	syncDataAndGraphics();
 
@@ -39,6 +43,11 @@ function init() {
 	$('#start').on('click', start);
 	$('#stop').on('click', stop);
 	$('#step').on('click', step);
+
+	svg.on('mousedown', handleMouseDown);
+	svg.on('mouseup', handleMouseUp);
+	svg.on('mousemove', handleMouseMove);
+	svg.on('contextmenu', function(){ d3.event.preventDefault(); });
 }
 
 function pairKey(node1id, node2id) {
@@ -186,6 +195,8 @@ function stop() {
 }
 
 function step() {
+	updateMouseState();
+	respondToInput();
 	stepPhysics();
 	draw();
 }
@@ -267,11 +278,175 @@ function dis(x1, y1, x2, y2) {
 	return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
 }
 
+
+var now = Date.now();
+var mouseEvents = [[[null, null]], [], [], []]; // mousemove, left button, middle button, right button
+var mouseEventTimes = [now, now, now, now];
+var mouseState = {"state": "hover"};
+
 function handleMouseDown(d, i) {
-	//
+	d3.event.preventDefault();
+	// console.log(d3.event);
+	mouseEvents[d3.event.which].unshift([d3.event, null]);
+	mouseEvents[0].unshift([d3.event, null]);
+	mouseEventTimes[d3.event.which] = Date.now();
 }
 
 function handleMouseUp(d, i) {
-	//
+	d3.event.preventDefault();
+	mouseEvents[d3.event.which][0][1] = d3.event;
+	mouseEvents[0].unshift([d3.event, null]);
+	mouseEventTimes[d3.event.which] = Date.now();
+}
+
+function handleMouseMove() {
+	d3.event.preventDefault();
+	mouseEvents[0][0][1] = d3.event;
+	mouseEventTimes[0] = Date.now();
+}
+
+var moveDis = 10;
+var holdTime = 400;
+var clickWaitTime = 300;
+
+function updateMouseState() {
+	now = Date.now();
+	var buttonsDown = (mouseEvents[1].length && mouseEvents[1][0][1] == null) * 1 + (mouseEvents[2].length && mouseEvents[2][0][1] == null) * 2 + (mouseEvents[3].length && mouseEvents[3][0][1] == null) * 4;
+	// console.log("buttonsDown: ", buttonsDown);
+	// var buttonsDownTime = Math.min(mouseEventTimes[1], mouseEventTimes[2], mouseEventTimes[3]);
+	var oldState = mouseState["state"];
+
+	// hover -> down
+	if(mouseState["state"] == "hover") {
+
+		// down -> down
+		if(buttonsDown > 0) {
+			mouseState["state"] = "down";
+		}
+
+	}
+
+	// down -> click, hold, drag
+	else if (mouseState["state"] == "down") {
+
+		// up -> click
+		if(buttonsDown == 0) {
+			mouseState["state"] = "click";
+			mouseState["clicks"] = 1;
+		}
+
+		// wait -> hold
+		else if (now - mouseState["time"] > holdTime) {
+			mouseState["state"] = "hold";
+		}
+
+		// move -> drag
+		else if (mouseEvents[0][0][1] != null) {
+			var a = mouseEvents[0][0][0],
+				b = mouseEvents[0][0][1];
+
+			if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
+				mouseState["state"] = "drag";
+			}
+		}
+	}
+
+	// click -> hover, click-down
+	else if (mouseState["state"] == "click") {
+
+		// down -> click-down
+		if(buttonsDown > 0) {
+			mouseState["state"] = "click-down";
+		}
+
+		// wait -> hover
+		else if (now - mouseState["time"] > clickWaitTime) {
+			mouseState["state"] = "hover";
+			mouseState["clicks"] = 0;
+		}
+	}
+
+	// click-down -> click, click-drag, click-hold
+	else if (mouseState["state"] == "click-down") {
+
+		// up -> click
+		if(buttonsDown == 0) {
+			mouseState["state"] = "click";
+			mouseState["clicks"] += 1;
+		}
+
+		// wait -> click-hold
+		else if (now - mouseState["time"] > holdTime) {
+			mouseState["state"] = "click-hold";
+		}
+
+		// move -> click-drag
+		else if (mouseEvents[0][0][1] != null) {
+			var a = mouseEvents[0][0][0],
+				b = mouseEvents[0][0][1];
+
+			if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
+				mouseState["state"] = "click-drag";
+			}
+		}
+	}
+
+	// click-drag, click-hold, hold, hold-drag, drag, drag-hold + up -> hover
+	else if (buttonsDown == 0 && ["click-drag", "click-hold", "hold", "hold-drag", "drag", "drag-hold"].includes(mouseState["state"])) {
+		mouseState["state"] = "hover";
+		mouseState["clicks"] = 0;
+	}
+
+	// hold -> hold-drag
+	else if (mouseState["state"] == "hold") {
+
+		// move -> hold-drag
+		if(mouseEvents[0][0][1] != null) {
+			var a = mouseEvents[0][0][0],
+				b = mouseEvents[0][0][1];
+
+			if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
+				mouseState["state"] = "hold-drag";
+			}
+		}
+	}
+
+	// drag -> drag-hold
+
+	// known states and nothing to do
+	else if (["click", "click-drag", "click-hold", "hold", "hold-drag", "drag", "drag-hold"].includes(mouseState["state"])) {
+		// pass
+	}
+
+	// unknown state
+	else {
+		console.log("ERROR! Unknown/invalid state: " + mouseState["state"])
+	}
+
+	mouseState["buttons"] = buttonsDown;
+	if(mouseState["state"] != oldState) {
+		mouseState["time"] = now;
+		console.log("Mouse state: ", mouseState["state"]);
+
+		if(mouseState["state"] == "click") {
+			console.log("Clicks: ", mouseState["clicks"]);
+		}
+	}
+}
+
+function respondToInput() {
+	// drag with right button -> pan
+	if(mouseState["state"] == "drag" && mouseState["buttons"] == 4) {
+	    newFieldX = mouseEvents[0][0][1].x - mouseEvents[0][0][0].x + fieldX;
+	    newFieldY = mouseEvents[0][0][1].y - mouseEvents[0][0][0].y + fieldY;
+    	
+  		field.attr('transform', 'translate(' + (newFieldX) + ', ' + (newFieldY) + ')');
+	}
+
+	else if (mouseState["state"] == "hover") {
+		fieldX = newFieldX;
+		fieldY = newFieldY;
+		field.attr('transform', 'translate(' + (fieldX) + ', ' + (fieldY) + ')');
+	}
 }
 
