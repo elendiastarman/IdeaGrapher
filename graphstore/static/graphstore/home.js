@@ -5,10 +5,12 @@ var field;
 
 var width = 1200,
     height = 900,
-    fieldX = width/2,
-    fieldY = height/2,
-    newFieldX = fieldX,
-    newFieldY = fieldY;
+    fieldX = 0,
+    fieldY = 0,
+    fieldScale = 1,
+    fX = fieldX,
+    fY = fieldY,
+    fS = fieldScale;
 
 var nodes = {}
     nodeIds = [],
@@ -47,6 +49,7 @@ function init() {
 	svg.on('mousedown', handleMouseDown);
 	svg.on('mouseup', handleMouseUp);
 	svg.on('mousemove', handleMouseMove);
+	svg.on('wheel.zoom', handleMouseScroll);
 	svg.on('contextmenu', function(){ d3.event.preventDefault(); });
 }
 
@@ -280,11 +283,11 @@ function dis(x1, y1, x2, y2) {
 
 
 var now = Date.now();
-var mouseEvents = [[[null, null]], [], [], []]; // mousemove, left button, middle button, right button
-var mouseEventTimes = [now, now, now, now];
-var mouseState = {"state": "hover"};
+var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, middle button, right button
+var mouseEventTimes = [now, now, now, now, now];
+var mouseState = {"state": "hover", "scrollTime": 0};
 
-function handleMouseDown(d, i) {
+function handleMouseDown() {
 	d3.event.preventDefault();
 	// console.log(d3.event);
 	mouseEvents[d3.event.which].unshift([d3.event, null]);
@@ -292,7 +295,7 @@ function handleMouseDown(d, i) {
 	mouseEventTimes[d3.event.which] = Date.now();
 }
 
-function handleMouseUp(d, i) {
+function handleMouseUp() {
 	d3.event.preventDefault();
 	mouseEvents[d3.event.which][0][1] = d3.event;
 	mouseEvents[0].unshift([d3.event, null]);
@@ -303,6 +306,13 @@ function handleMouseMove() {
 	d3.event.preventDefault();
 	mouseEvents[0][0][1] = d3.event;
 	mouseEventTimes[0] = Date.now();
+}
+
+function handleMouseScroll() {
+	d3.event.preventDefault();
+	mouseEvents[4].unshift(d3.event);
+	mouseEventTimes[4] = Date.now();
+	// console.log(d3.event);
 }
 
 var moveDis = 10;
@@ -423,6 +433,13 @@ function updateMouseState() {
 		console.log("ERROR! Unknown/invalid state: " + mouseState["state"])
 	}
 
+	if(mouseEvents[4].length && mouseEventTimes[4] > mouseState["scrollTime"]) {
+		mouseState["scroll"] = [mouseEvents[4][0].deltaX, mouseEvents[4][0].deltaY]
+		mouseState["scrollTime"] = mouseEventTimes[4];
+	} else {
+		mouseState["scroll"] = [0, 0];
+	}
+
 	mouseState["buttons"] = buttonsDown;
 	if(mouseState["state"] != oldState) {
 		mouseState["time"] = now;
@@ -435,18 +452,27 @@ function updateMouseState() {
 }
 
 function respondToInput() {
+
 	// drag with right button -> pan
 	if(mouseState["state"] == "drag" && mouseState["buttons"] == 4) {
-	    newFieldX = mouseEvents[0][0][1].x - mouseEvents[0][0][0].x + fieldX;
-	    newFieldY = mouseEvents[0][0][1].y - mouseEvents[0][0][0].y + fieldY;
-    	
-  		field.attr('transform', 'translate(' + (newFieldX) + ', ' + (newFieldY) + ')');
-	}
+	    fX = mouseEvents[0][0][1].x - mouseEvents[0][0][0].x + fieldX;
+	    fY = mouseEvents[0][0][1].y - mouseEvents[0][0][0].y + fieldY;
+   	}
 
 	else if (mouseState["state"] == "hover") {
-		fieldX = newFieldX;
-		fieldY = newFieldY;
-		field.attr('transform', 'translate(' + (fieldX) + ', ' + (fieldY) + ')');
+	    fieldX = fX;
+	    fieldY = fY;
 	}
+
+	if(mouseState["scroll"][1] < 0) {
+		fS = fieldScale * 1.2;
+	} else if (mouseState["scroll"][1] > 0) {
+		fS = fieldScale / 1.2;
+	} else {
+		fS = fieldScale;
+	}
+	fieldScale = fS;
+
+	field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
 }
 
