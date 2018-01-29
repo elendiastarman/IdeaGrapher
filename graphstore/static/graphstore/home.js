@@ -453,17 +453,6 @@ function updateMouseState() {
 
 function respondToInput() {
 
-	// drag with right button -> pan
-	if(mouseState["state"] == "drag" && mouseState["buttons"] == 4) {
-	    fX = mouseEvents[0][0][1].x - mouseEvents[0][0][0].x + fieldX;
-	    fY = mouseEvents[0][0][1].y - mouseEvents[0][0][0].y + fieldY;
-   	}
-
-	else if (mouseState["state"] == "hover") {
-	    fieldX = fX;
-	    fieldY = fY;
-	}
-
 	if(mouseState["scroll"][1] < 0) {
 		fS = fieldScale * 1.2;
 	} else if (mouseState["scroll"][1] > 0) {
@@ -472,6 +461,17 @@ function respondToInput() {
 		fS = fieldScale;
 	}
 	fieldScale = fS;
+
+	// drag with right button -> pan
+	if(mouseState["state"] == "drag" && mouseState["buttons"] == 4) {
+	    fX = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldX;
+	    fY = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldY;
+   	}
+
+	else if (mouseState["state"] == "hover") {
+	    fieldX = fX;
+	    fieldY = fY;
+	}
 
 	field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
 }
