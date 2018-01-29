@@ -160,7 +160,7 @@ function drawSync() {
 	  .attr('text-anchor', 'middle')
 	  .attr('alignment-baseline', 'central');
 
-	vData.exit().remove()
+	vData.exit().remove();
 
 	draw();
 }
@@ -180,6 +180,8 @@ function draw() {
 	  .attr('y1', function(d){ return edges[d]['start']['y']; })
 	  .attr('x2', function(d){ return edges[d]['end']['x']; })
 	  .attr('y2', function(d){ return edges[d]['end']['y']; });
+
+	field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
 }
 
 var loopTimer;
@@ -210,7 +212,7 @@ function stepPhysics() {
 	var logger = [false, false];
 
 	for(nid in nodes) {
-		cumulativeOffset[nid] = [0, 0];
+		cumulativeOffset[nid] = origingravity(nid);
 	}
 
 	for(pairId in pairs) {
@@ -238,7 +240,7 @@ function stepPhysics() {
 
 function displace(n1id, n2id, link) {
 	var closenessMultiplier = 1;
-	var strengthMultiplier = 1;
+	var strengthMultiplier = 1.1;
 	var n1x = vertices[n1id]['x'],
 	    n1y = vertices[n1id]['y'],
 	    n2x = vertices[n2id]['x'],
@@ -267,7 +269,7 @@ function antigravity(n1id, n2id) {
 	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2));
 	// var diff = link['closeness'] * closenessMultiplier - dist;
 	// var force = diff * link['strength'] * strengthMultiplier;
-	var force = 10 * twiddle / Math.sqrt(dist);
+	var force = 10 * twiddle / Math.sqrt(dist + 10);
 
 	var off1x = force * (n1x - n2x) / dist,
 		off1y = force * (n1y - n2y) / dist,
@@ -275,6 +277,18 @@ function antigravity(n1id, n2id) {
 		off2y = force * (n2y - n1y) / dist;
 
 	return [off1x, off1y, off2x, off2y];
+}
+
+function origingravity(nid) {
+	var nx = vertices[nid]['x'],
+	    ny = vertices[nid]['y'];
+	var dist = Math.sqrt(nx*nx + ny*ny);
+	var force = -1./20 * twiddle * Math.pow(dist + 100, 1./1);
+
+	var offx = force * nx / dist;
+	    offy = force * ny / dist;
+
+	return [offx, offy];
 }
 
 function dis(x1, y1, x2, y2) {
@@ -472,7 +486,5 @@ function respondToInput() {
 	    fieldX = fX;
 	    fieldY = fY;
 	}
-
-	field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
 }
 
