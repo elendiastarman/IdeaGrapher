@@ -220,17 +220,20 @@ function stop() {
 }
 
 function step() {
-	updateMouseState();
-	respondToInput();
+	var changed = false;
+	changed = updateMouseState() || changed;
+	changed = respondToInput() || changed;
 
-	executeContinuousTriggers();
-	executeChangeTriggers();
+	changed = executeContinuousTriggers() || changed;
 
 	if (doPhysics) {
 		stepPhysics();
+		changed = changed || true;
 	}
 
-	draw();
+	if (changed) {
+		draw();
+	}
 }
 
 var cumulativeAccel = {};
@@ -348,10 +351,12 @@ function dis(x1, y1, x2, y2) {
 var now = Date.now();
 var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, middle button, right button
 var mouseEventTimes = [now, now, now, now, now];
-var mouseState = {"state": "hover", "scrollTime": 0};
+var mouseState = {"state": "hover", "scrollTime": 0, "changed": false};
 
 function handleMouseDown() {
 	d3.event.preventDefault();
+	mouseState['changed'] = true;
+
 	// console.log(d3.event);
 	mouseEvents[d3.event.which].unshift([d3.event, null]);
 	mouseEvents[0].unshift([d3.event, null]);
@@ -360,6 +365,8 @@ function handleMouseDown() {
 
 function handleMouseUp() {
 	d3.event.preventDefault();
+	mouseState['changed'] = true;
+
 	mouseEvents[d3.event.which][0][1] = d3.event;
 	mouseEvents[0].unshift([d3.event, null]);
 	mouseEventTimes[d3.event.which] = Date.now();
@@ -367,12 +374,16 @@ function handleMouseUp() {
 
 function handleMouseMove() {
 	d3.event.preventDefault();
+	mouseState['changed'] = true;
+
 	mouseEvents[0][0][1] = d3.event;
 	mouseEventTimes[0] = Date.now();
 }
 
 function handleMouseScroll() {
 	d3.event.preventDefault();
+	mouseState['changed'] = true;
+
 	mouseEvents[4].unshift(d3.event);
 	mouseEventTimes[4] = Date.now();
 	// console.log(d3.event);
@@ -504,6 +515,7 @@ function updateMouseState() {
 	}
 
 	mouseState["buttons"] = buttonsDown;
+
 	if(mouseState["state"] != oldState) {
 		mouseState["time"] = now;
 		executeChangeTriggers(oldState, mouseState["state"]);
@@ -513,41 +525,59 @@ function updateMouseState() {
 			console.log("Clicks: ", mouseState["clicks"]);
 		}
 	}
+
+	var changed = mouseState['changed'];
+	mouseState['changed'] = false;
+	return changed;
 }
 
 function respondToInput() {
+	var changed = false;
 
 	if(mouseState["scroll"][1] < 0) {
 		fS = fieldScale * 1.2;
+		changed = true;
 	} else if (mouseState["scroll"][1] > 0) {
 		fS = fieldScale / 1.2;
+		changed = true;
 	} else {
 		fS = fieldScale;
 	}
 	fieldScale = fS;
+
+	return changed;
 }
 
 function executeContinuousTriggers() {
+	var changed = false;
+
 	for(index in continuousTriggers) {
 		group = continuousTriggers[index];
-		// console.log("group: ", group);
 		if(group[0].exec(mouseState["state"])) {
 			for(fIndex in group[1]) {
 				group[1][fIndex]();
+				changed = true;
 			}
 		}
 	}
+
+	return changed;
 }
 
 function executeChangeTriggers(oldState, newState) {
+	var changed = false;
+
 	for(index in changeTriggers) {
 		group = changeTriggers[index];
 		if(group[0].exec(oldState + '->' + newState)) {
 			for(fIndex in group[1]) {
 				group[1][fIndex]();
+				changed = true;
 			}
 		}
 	}
+
+	return changed;
 }
 
 function pan() {
