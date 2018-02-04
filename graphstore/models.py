@@ -237,7 +237,10 @@ class FloatField(MongoField):
     super().validate()
 
     if not isinstance(self.value, float):
-      raise ValueError("Value must be {}, not {}.".format(float, type(self.value)))
+      if isinstance(self.value, int):
+        self.value = float(self.value)
+      else:
+        raise ValueError("Value {} must be {}, not {}.".format(self.value, float, type(self.value)))
 
     if self.min_value and self.value < self.min_value:
       raise ValueError("Minimum value is {}; actual value is {}.".format(self.min_value, self.value))

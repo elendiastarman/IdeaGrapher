@@ -24,7 +24,10 @@ var nodes = {}
 
 $(document).ready(function(){ init(); });
 
+var startTime, loopTimer;
 function init() {
+	startTime = Date.now();
+
 	load_data();
 
 	svg.attr('width', width).attr('height', height).style('border', '1px solid black');
@@ -52,7 +55,9 @@ function init() {
 	svg.on('wheel.zoom', handleMouseScroll);
 	svg.on('contextmenu', function(){ d3.event.preventDefault(); });
 
-	start();
+	// start();
+	var delay = 20;
+	loopTimer = setInterval(step, delay);
 }
 
 function pairKey(node1id, node2id) {
@@ -122,6 +127,8 @@ function syncDataAndGraphics() {
 			'node': nodes[id],
 			'x': Math.random() * 400 - 200,
 			'y': Math.random() * 400 - 200,
+			'xv': 0,
+			'yv': 0,
 		};
 	});
 
@@ -203,19 +210,13 @@ function draw() {
 	field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
 }
 
-var loopTimer;
+doPhysics = false;
 function start() {
-	var delay = 30;
-	if(!loopTimer) {
-		loopTimer = setInterval(step, delay);
-	}
+	doPhysics = true;
 }
 
 function stop() {
-	if(loopTimer) {
-		clearInterval(loopTimer);
-		loopTimer = null;
-	}
+	doPhysics = false;
 }
 
 function step() {
@@ -225,17 +226,23 @@ function step() {
 	executeContinuousTriggers();
 	executeChangeTriggers();
 
-	stepPhysics();
+	if (doPhysics) {
+		stepPhysics();
+	}
+
 	draw();
 }
 
-var cumulativeOffset = {};
+var cumulativeAccel = {};
 var twiddle = 0.1;
+var stepSize = 0.1;
+var initDrag = 1;
+
 function stepPhysics() {
 	var logger = [false, false];
 
 	for(nid in nodes) {
-		cumulativeOffset[nid] = origingravity(nid);
+		cumulativeAccel[nid] = origingravity(nid);
 	}
 
 	for(pairId in pairs) {
@@ -249,17 +256,25 @@ function stepPhysics() {
 			offset = antigravity(nids[0], nids[1]);
 		}
 
-		cumulativeOffset[nids[0]][0] += offset[0];
-		cumulativeOffset[nids[0]][1] += offset[1];
-		cumulativeOffset[nids[1]][0] += offset[2];
-		cumulativeOffset[nids[1]][1] += offset[3];
+		cumulativeAccel[nids[0]][0] += offset[0];
+		cumulativeAccel[nids[0]][1] += offset[1];
+		cumulativeAccel[nids[1]][0] += offset[2];
+		cumulativeAccel[nids[1]][1] += offset[3];
 	}
 
+	drag = initDrag / Math.pow((Date.now() - startTime) / 500000 + 1, 1./4);
 	for(nid in nodes) {
-		vertices[nid]['x'] += cumulativeOffset[nid][0];
-		vertices[nid]['y'] += cumulativeOffset[nid][1];
+		vertices[nid]['xv'] = drag * (vertices[nid]['xv'] + stepSize * cumulativeAccel[nid][0]);
+		vertices[nid]['yv'] = drag * (vertices[nid]['yv'] + stepSize * cumulativeAccel[nid][1]);
+
+		vertices[nid]['x'] += stepSize * vertices[nid]['xv'];
+		vertices[nid]['y'] += stepSize * vertices[nid]['yv'];
 	}
 }
+
+var maxForceStrength = 2;
+var minForceStrength = -maxForceStrength;
+var minDist = 2;
 
 function displace(n1id, n2id, link) {
 	var closenessMultiplier = 1;
@@ -270,8 +285,12 @@ function displace(n1id, n2id, link) {
 	    n2y = vertices[n2id]['y'];
 
 	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2));
+	dist = Math.max(dist, minDist);
+
 	var diff = link['closeness'] * closenessMultiplier - dist;
 	var force = diff * link['strength'] * strengthMultiplier * twiddle;
+
+	force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
 
 	var off1x = force * (n1x - n2x) / dist,
 		off1y = force * (n1y - n2y) / dist,
@@ -290,9 +309,12 @@ function antigravity(n1id, n2id) {
 	    n2y = vertices[n2id]['y'];
 
 	var dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2));
+	dist = Math.max(dist, minDist);
 	// var diff = link['closeness'] * closenessMultiplier - dist;
 	// var force = diff * link['strength'] * strengthMultiplier;
 	var force = 10 * twiddle / Math.sqrt(dist + 10);
+
+	force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
 
 	var off1x = force * (n1x - n2x) / dist,
 		off1y = force * (n1y - n2y) / dist,
@@ -306,7 +328,11 @@ function origingravity(nid) {
 	var nx = vertices[nid]['x'],
 	    ny = vertices[nid]['y'];
 	var dist = Math.sqrt(nx*nx + ny*ny);
+	dist = Math.max(dist, minDist);
+
 	var force = -1./20 * twiddle * Math.pow(dist + 100, 1./1);
+
+	force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
 
 	var offx = force * nx / dist;
 	    offy = force * ny / dist;
@@ -481,7 +507,7 @@ function updateMouseState() {
 	if(mouseState["state"] != oldState) {
 		mouseState["time"] = now;
 		executeChangeTriggers(oldState, mouseState["state"]);
-		console.log("Mouse state: ", mouseState["state"]);
+		// console.log("Mouse state: ", mouseState["state"]);
 
 		if(mouseState["state"] == "click") {
 			console.log("Clicks: ", mouseState["clicks"]);
