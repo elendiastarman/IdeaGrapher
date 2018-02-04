@@ -202,6 +202,10 @@ function stop() {
 function step() {
 	updateMouseState();
 	respondToInput();
+
+	executeContinuousTriggers();
+	executeChangeTriggers();
+
 	stepPhysics();
 	draw();
 }
@@ -457,6 +461,7 @@ function updateMouseState() {
 	mouseState["buttons"] = buttonsDown;
 	if(mouseState["state"] != oldState) {
 		mouseState["time"] = now;
+		executeChangeTriggers(oldState, mouseState["state"]);
 		console.log("Mouse state: ", mouseState["state"]);
 
 		if(mouseState["state"] == "click") {
@@ -475,16 +480,48 @@ function respondToInput() {
 		fS = fieldScale;
 	}
 	fieldScale = fS;
+}
 
-	// drag with right button -> pan
-	if(mouseState["state"] == "drag" && mouseState["buttons"] == 4) {
+function executeContinuousTriggers() {
+	for(index in continuousTriggers) {
+		group = continuousTriggers[index];
+		// console.log("group: ", group);
+		if(group[0].exec(mouseState["state"])) {
+			for(fIndex in group[1]) {
+				group[1][fIndex]();
+			}
+		}
+	}
+}
+
+function executeChangeTriggers(oldState, newState) {
+	for(index in changeTriggers) {
+		group = changeTriggers[index];
+		if(group[0].exec(oldState + '->' + newState)) {
+			for(fIndex in group[1]) {
+				group[1][fIndex]();
+			}
+		}
+	}
+}
+
+function pan() {
+	if(mouseState["buttons"] == 4) {
 	    fX = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldX;
 	    fY = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldY;
    	}
-
-	else if (mouseState["state"] == "hover") {
-	    fieldX = fX;
-	    fieldY = fY;
-	}
 }
+
+function panEnd() {
+	fieldX = fX;
+    fieldY = fY;
+}
+
+continuousTriggers = [
+	[/drag/, [pan]],
+]
+
+changeTriggers = [
+	[/drag->hover/, [panEnd]],
+]
 
