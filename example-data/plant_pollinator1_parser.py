@@ -30,7 +30,7 @@ for i in range(plantN):
         node = Node.find_one({'shortname': name})
         print("Found node!", name, node)
     except ObjectNotFound:
-        node = Node(shortname=name)
+        node = Node(shortname=name, blurb='plant')
         node.save()
         print("Node created:", name, node)
 
@@ -45,7 +45,7 @@ for row in reader:
         node = Node.find_one({'shortname': name})
         print("Found node!", name, node)
     except ObjectNotFound:
-        node = Node(shortname=name)
+        node = Node(shortname=name, blurb='pollinator')
         node.save()
         print("Node created:", name, node)
 
@@ -58,7 +58,7 @@ for row in reader:
                 link = Link.find_one({'sources': [plantNodes[i - 3].id], 'sinks': [node.id]})
                 print("Found link!", link)
             except ObjectNotFound:
-                link = Link(kind="connected", sources=[plantNodes[i - 3]], sinks=[node])
+                link = Link(kind="directed", sources=[plantNodes[i - 3]], sinks=[node], closeness=50)
                 link.save()
                 print("Link created:", link)
 
