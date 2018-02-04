@@ -51,6 +51,8 @@ function init() {
 	svg.on('mousemove', handleMouseMove);
 	svg.on('wheel.zoom', handleMouseScroll);
 	svg.on('contextmenu', function(){ d3.event.preventDefault(); });
+
+	start();
 }
 
 function pairKey(node1id, node2id) {
@@ -149,16 +151,25 @@ function drawSync() {
 	  .attr('id', function(d){ return d; });
 	vEnterGroup.append('circle')
 	  .attr('fill', 'gray')
-	  .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['size'])); })
 	  .attr('stroke', 'black')
-	  .attr('stroke-wdith', '1px');
 	vEnterGroup.append('text')
 	  .text(function(d){ return nodes[d]['shortname']})
 	  .attr('x', function(d){ return vertices[d]['x']; })
 	  .attr('y', function(d){ return vertices[d]['y']; })
-	  .attr('color', 'black')
+	  .attr('class', 'outer')
 	  .attr('text-anchor', 'middle')
-	  .attr('alignment-baseline', 'central');
+	  .attr('alignment-baseline', 'central')
+	  .style('fill', 'white')
+	  .style('stroke', 'black');
+	vEnterGroup.append('text')
+	  .text(function(d){ return nodes[d]['shortname']})
+	  .attr('x', function(d){ return vertices[d]['x']; })
+	  .attr('y', function(d){ return vertices[d]['y']; })
+	  .attr('class', 'inner')
+	  .attr('text-anchor', 'middle')
+	  .attr('alignment-baseline', 'central')
+	  .style('fill', 'white')
+	  .style('stroke', 'white');
 
 	vData.exit().remove();
 
@@ -169,17 +180,25 @@ function draw() {
 	var vData = field.selectAll('.node');
 	vData.selectAll('circle')
 	  .attr('cx', function(d){ return vertices[d]['x']; })
-	  .attr('cy', function(d){ return vertices[d]['y']; });
+	  .attr('cy', function(d){ return vertices[d]['y']; })
+	  .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['size'])) * 2 / fS; })
+	  .attr('stroke-width', (2 / fS) + 'px');
 	vData.selectAll('text')
 	  .attr('x', function(d){ return vertices[d]['x']; })
-	  .attr('y', function(d){ return vertices[d]['y']; });
+	  .attr('y', function(d){ return vertices[d]['y']; })
+	  .attr('font-size', 16 / fS );
+	vData.selectAll('text.outer')
+	  .style('stroke-width', 5 / fS);
+	vData.selectAll('text.inner')
+	  .style('stroke-width', 1 / fS);
 
 	var eData = field.selectAll('.link');
 	eData.selectAll('line')
 	  .attr('x1', function(d){ return edges[d]['start']['x']; })
 	  .attr('y1', function(d){ return edges[d]['start']['y']; })
 	  .attr('x2', function(d){ return edges[d]['end']['x']; })
-	  .attr('y2', function(d){ return edges[d]['end']['y']; });
+	  .attr('y2', function(d){ return edges[d]['end']['y']; })
+	  .attr('stroke-width', function(d){ return (2 / fS) + 'px'; });
 
 	field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
 }
