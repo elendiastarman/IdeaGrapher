@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.conf.urls import url  # , include
 
-from graphstore.views import *
+from webviz.views import favicon, home_view
 
 urlpatterns = [
     url(r'favicon.*', favicon),
