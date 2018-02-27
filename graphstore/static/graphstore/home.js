@@ -281,7 +281,7 @@ var minDist = 2;
 
 function displace(n1id, n2id, link) {
 	var closenessMultiplier = 1;
-	var strengthMultiplier = 1.1;
+	var strengthMultiplier = 1.5;
 	var n1x = vertices[n1id]['x'],
 	    n1y = vertices[n1id]['y'],
 	    n2x = vertices[n2id]['x'],
@@ -315,7 +315,7 @@ function antigravity(n1id, n2id) {
 	dist = Math.max(dist, minDist);
 	// var diff = link['closeness'] * closenessMultiplier - dist;
 	// var force = diff * link['strength'] * strengthMultiplier;
-	var force = 10 * twiddle / Math.sqrt(dist + 10);
+	var force = 10 * twiddle / Math.pow(dist + 100, 1/2);
 
 	force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
 
