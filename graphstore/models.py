@@ -8,9 +8,11 @@ class MongoModelMeta(type):
   def __init__(cls, name, bases, dct):
     if not hasattr(cls, 'model_refs'):
       # base class; create reference dictionary
+      cls.model_name_map = {}
       cls.model_refs = {}
 
     else:
+      cls.model_name_map[name] = cls
       cls.model_refs[cls] = {}
 
       # Set each class' COLLECTION variable
@@ -106,6 +108,10 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
   @classmethod
   def add_model_dependency(cls, name, field_instance):
+    # check model refs first
+    if name in cls.model_name_map:
+      field_instance.update_config('model_class', cls.model_name_map[name])
+
     if name not in cls.dependencies:
       cls.dependencies[name] = []
 
@@ -233,6 +239,9 @@ class MongoField:
     return self.__class__(**self.config.copy())
 
   def update_config(self, key, new_value):
+    if self.config is None:
+      self.config = {}
+
     self.config[key] = new_value
     setattr(self, key, new_value)
 
@@ -405,4 +414,4 @@ class Graph(MongoModel):
   blurb = StringField(max_length=200, default="")
   explanation = StringField(default="")
   links = ListField(ModelField(Link))
-  nodes = ListField(ModelField(Node))
+  nodes = ListField(ModelField('Node'))
