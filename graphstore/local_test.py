@@ -1,4 +1,4 @@
-from graphstore.models import *
+from graphstore.models import MongoModel, Node, Link, ObjectNotFound
 from bson import ObjectId
 MongoModel.set_database("test")
 MongoModel.connect("localhost", 27017)
@@ -8,13 +8,13 @@ n2_shortname = "testnode2"
 
 try:
   n1 = Node.find_one({'shortname': n1_shortname})
-except:
+except ObjectNotFound:
   n1 = Node(shortname="testnode1")
   n1.save()
 
 try:
   n2 = Node.find_one({'shortname': n2_shortname})
-except:
+except ObjectNotFound:
   n2 = Node(shortname="testnode2")
   n2.save()
 
@@ -33,4 +33,5 @@ except ObjectNotFound:
     assert l2.sources[0] == n1
     assert l2.sinks[0] == n2
   except AssertionError:
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
+    pass

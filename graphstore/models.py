@@ -2,12 +2,37 @@ from bson import ObjectId
 from pymongo import MongoClient
 import json
 
-deferred_funcs = []  # for e.g. resolving circular dependencies
-
 
 # ## Base classes
-class MongoModel:
+class MongoModelMeta(type):
+  def __init__(cls, name, bases, dct):
+    if not hasattr(cls, 'model_refs'):
+      # base class; create reference dictionary
+      cls.model_refs = {}
+
+    else:
+      cls.model_refs[cls] = {}
+
+      # Set each class' COLLECTION variable
+      cls.COLLECTION = cls.default_collection_name()
+
+      # initialize model class' fields variable and stuff it with the defined fields
+      cls.fields = {}
+      for field_name in dir(cls):
+        attr = getattr(cls, field_name)
+        if isinstance(attr, MongoField):
+          cls.fields[field_name] = attr
+
+      if name in cls.dependencies:
+        field_instances = cls.dependencies[name]
+
+        for field_instance in field_instances:
+          field_instance.update_config('model_class', cls)
+
+
+class MongoModel(object, metaclass=MongoModelMeta):
   fields = {}
+  dependencies = {}
   CLIENT = None
   DATABASE = None
   COLLECTION = None
@@ -59,6 +84,33 @@ class MongoModel:
   def default_collection_name(cls):
     return str(cls).split('.')[-1][:-2].lower()  # the class name lowercased
 
+  @classmethod
+  def get_or_make_ref(cls, model_class, id, data=None, obj=None):
+    key = str(id)
+
+    if model_class is None:
+      raise ValueError("model_class is None and it should not be.")
+    elif model_class not in cls.model_refs:
+      raise ValueError("model_class {} is somehow unknown.".format(model_class))
+
+    if key in cls.model_refs[model_class]:
+      return cls.model_refs[model_class][key]
+    else:
+      if obj is None:
+        if data is None:
+          obj = model_class.get_by_id(id)
+        else:
+          obj = model_class.deserialize(data)
+
+      return cls.model_refs[model_class].setdefault(key, obj)
+
+  @classmethod
+  def add_model_dependency(cls, name, field_instance):
+    if name not in cls.dependencies:
+      cls.dependencies[name] = []
+
+    cls.dependencies[name].append(field_instance)
+
   def save(self):
     if not self.CLIENT:
       raise ValueError("Must be connected to Mongo.")
@@ -72,7 +124,7 @@ class MongoModel:
     if not self._id:
       result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(self.serialize())
       self._id = result.inserted_id
-      model_refs.get_or_make_ref(self.__class__, self._id, obj=self)
+      self.get_or_make_ref(self.__class__, self._id, obj=self)
     else:
       changed = self.changed()
       if changed:
@@ -143,7 +195,7 @@ class MongoModel:
 
     docs = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find(query)
 
-    return [model_refs.get_or_make_ref(cls, id=doc['_id'], data=doc) for doc in docs]
+    return [cls.get_or_make_ref(cls, id=doc['_id'], data=doc) for doc in docs]
 
   @classmethod
   def find_one(cls, query):
@@ -154,7 +206,7 @@ class MongoModel:
     if doc is None:
       raise ObjectNotFound("No {} was found with query {}.".format(cls, query))
 
-    return model_refs.get_or_make_ref(cls, id=doc['_id'], data=doc)
+    return cls.get_or_make_ref(cls, id=doc['_id'], data=doc)
 
   @classmethod
   def get_by_id(cls, object_id):
@@ -299,7 +351,7 @@ class ListField(MongoField):
 
   def deserialize(self, data):
     if isinstance(self.field_class, ModelField):
-      return [model_refs.get_or_make_ref(self.field_class.model_class, item) for item in data]
+      return [self.field_class.model_class.get_or_make_ref(self.field_class.model_class, item) for item in data]
     else:
       return [self.field_class(item) for item in data]
 
@@ -319,7 +371,7 @@ class EnumField(MongoField):
 class ModelField(MongoField):
   def __init__(self, model_class, **kwargs):
     if isinstance(model_class, str):
-      deferred_funcs.append(lambda: lambda instance, model_cls: instance.update_config('model_class', locals()[model_cls])(self, model_class))
+      MongoModel.add_model_dependency(model_class, self)
     else:
       kwargs.setdefault('model_class', model_class)
 
@@ -354,58 +406,3 @@ class Graph(MongoModel):
   explanation = StringField(default="")
   links = ListField(ModelField(Link))
   nodes = ListField(ModelField(Node))
-
-
-# ## Hacky stuff
-
-class ModelRefs:
-  def __init__(self):
-    self.models = {}
-
-  def add_model(self, model_class):
-    self.models[model_class] = {}
-
-  def get_or_make_ref(self, model_class, id, data=None, obj=None):
-    # key = model_class.__name__ if isinstance(model_class, type) and issubclass(model_class, MongoModel) else model_class
-    # if '_id' in data:
-    #   key = data['_id']
-    # else:
-    #   raise ValueError("Attempted to get/make reference for {} instance with no '_id' in this data: {}".format(model_class, data))
-    key = str(id)
-
-    if model_class is None:
-      raise ValueError("model_class is None and it should not be.")
-    elif model_class not in self.models:
-      raise ValueError("model_class {} is somehow unknown. (Was it added with add_model?)".format(model_class))
-
-    if key in self.models[model_class]:
-      return self.models[model_class][key]
-    else:
-      if obj is None:
-        if data is None:
-          obj = model_class.get_by_id(id)
-        else:
-          obj = model_class.deserialize(data)
-
-      return self.models[model_class].setdefault(key, obj)
-
-model_refs = ModelRefs()
-
-frozen_locals = locals().copy()
-for key, item in frozen_locals.items():
-  if isinstance(item, type) and issubclass(item, MongoModel):
-    # Set each class' COLLECTION variable
-    item.COLLECTION = item.default_collection_name()
-
-    model_refs.add_model(item)
-
-    # initialize model class' fields variable and stuff it with the defined fields
-    item.fields = {}
-    for field_name in dir(item):
-      attr = getattr(item, field_name)
-      if isinstance(attr, MongoField):
-        item.fields[field_name] = attr
-
-# execute deferred functions
-for func in deferred_funcs:
-  func()
