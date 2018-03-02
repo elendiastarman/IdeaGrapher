@@ -377,6 +377,14 @@ class EnumField(MongoField):
       raise ValueError("Value is {} but it must be one of {}.".format(self.value, self.allowed))
 
 
+class DictField(MongoField):
+  def validate(self):
+    super().validate()
+
+    if not isinstance(self.value, dict):
+      raise ValueError("Value {} is a {} but must be a {}.".format(self.value, type(self.value), type(dict)))
+
+
 class ModelField(MongoField):
   def __init__(self, model_class, **kwargs):
     if isinstance(model_class, str):
@@ -398,15 +406,14 @@ class Node(MongoModel):
   blurb = StringField(max_length=200, default="")
   explanation = StringField(default="")
   subgraph = ListField(ModelField('Graph'))
-  size = FloatField(min_value=1, step=0.1, default=5)
+  data = DictField()
 
 
 class Link(MongoModel):
   kind = EnumField(["connected", "related", "directed"])
   sources = ListField(ModelField(Node))
   sinks = ListField(ModelField(Node))
-  strength = FloatField(min_value=0.1, step=0.1, default=1)
-  closeness = FloatField(min_value=0.1, step=0.1, default=1)
+  data = DictField()
 
 
 class Graph(MongoModel):
@@ -415,3 +422,4 @@ class Graph(MongoModel):
   explanation = StringField(default="")
   links = ListField(ModelField(Link))
   nodes = ListField(ModelField('Node'))
+  data = DictField()
