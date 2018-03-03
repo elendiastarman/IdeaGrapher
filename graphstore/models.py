@@ -38,6 +38,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
   CLIENT = None
   DATABASE = None
   COLLECTION = None
+  STRICT = True
   _id = None
 
   def __init__(self, _database=None, _collection=None, **kwargs):
@@ -155,7 +156,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
     #   pass
 
   def serialize(self):
-    return {field_name: field.serialize() for field_name, field in self.fields.items()}
+    return {field_name: field.serialize() for field_name, field in self.fields.items() if not isinstance(field, RawField)}
 
   def serialize_with_id(self):
     data = self.serialize()
@@ -178,8 +179,11 @@ class MongoModel(object, metaclass=MongoModelMeta):
       if key[0] == '_':
         continue
       elif key not in cls.fields:
-        errors[key] = "{} is not a field on this model.".format(key)
-        continue
+        if cls.STRICT:
+          errors[key] = "{} is not a field on this model.".format(key)
+          continue
+        else:
+          cls.fields[key] = RawField()
 
       try:
         deserialized_data[key] = cls.fields[key].deserialize(value)
@@ -265,6 +269,14 @@ class MongoField:
     # ret = cls(default=cls.clean(data))
     # ret.validate()
     # return ret
+
+
+class RawField(MongoField):
+  def validate(self):
+    pass
+
+  def serialize(self):
+    return self.value
 
 
 # ## Specialized fields
