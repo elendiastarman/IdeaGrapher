@@ -8,7 +8,7 @@
     <form method="post" action="{% url 'login' %}">
         {% csrf_token %}
         <table>
-            {% for field in login_form %}
+            {% for field in form %}
                 <tr>
                     <td>{{ field.label_tag }}</td>
                     <td>{{ field }}</td>
