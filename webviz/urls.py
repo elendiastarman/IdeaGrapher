@@ -15,9 +15,12 @@ Including another URLconf
 """
 from django.conf.urls import url  # , include
 
-from webviz.views import favicon, home_view
+from webviz.views import favicon, home_view, register_view, login_view, logout_view
 
 urlpatterns = [
     url(r'favicon.*', favicon),
     url(r'', home_view, name='home'),
+    url(r'login', login_view, name='login'),
+    url(r'register', register_view, name='register'),
+    url(r'logout', logout_view, name='logout'),
 ]

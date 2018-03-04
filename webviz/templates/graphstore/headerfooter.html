@@ -8,13 +8,11 @@
 
 {% block body %}
     <div id="header">
-        <!-- {% comment %}
         {% if not request.user.is_anonymous %}
-            <p style="float:right">Welcome {{request.user.first_name}}! <a href="{% url 'logout' %}">Logout</a></p>
+            <p style="float:right">Welcome {{request.user.username}}! <a href="{% url 'logout' %}">Logout</a></p>
         {% else %}
             <p style="float:right"><a href="{% url 'login' %}">Sign in</a> or <a href="{% url 'register' %}">sign up</a>!</p>
-        {% endif %} {% endcomment %}
-        -->
+        {% endif %}
         
         <div style="float:left">
             <ul class="tabs">
