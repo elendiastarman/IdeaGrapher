@@ -339,6 +339,21 @@ class StringField(MongoField):
       raise ValueError("Maximum length is {}; actual length is {}.".format(self.max_length, len(self.value)))
 
 
+class BytesField(MongoField):
+  def __init__(self, **kwargs):
+    kwargs.setdefault('max_length', 0)
+    super().__init__(**kwargs)
+
+  def validate(self):
+    super().validate()
+
+    if not isinstance(self.value, bytes):
+      raise ValueError("Value must be {}, not {}.".format(bytes, type(self.value)))
+
+    if self.max_length and len(self.value) > self.max_length:
+      raise ValueError("Maximum length is {}; actual length is {}.".format(self.max_length, len(self.value)))
+
+
 class ListField(MongoField):
   def __init__(self, field_class, **kwargs):
     kwargs.setdefault('max_length', 0)
