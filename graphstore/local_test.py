@@ -1,7 +1,6 @@
 from graphstore.models import MongoModel, Node, Link, ObjectNotFound
 from bson import ObjectId
-MongoModel.set_database("test")
-MongoModel.connect("localhost", 27017)
+MongoModel.connect_to_database("test", "localhost", 27017)
 
 n1_shortname = "testnode1"
 n2_shortname = "testnode2"

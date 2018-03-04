@@ -57,15 +57,13 @@ class MongoModel(object, metaclass=MongoModelMeta):
       self.__setattr__(key, value)
 
   @classmethod
-  def connect(cls, uri, port, username=None, password=None, auth_source="admin", auth_mechanism="SCRAM-SHA-1"):
+  def connect_to_database(cls, database, uri, port, username=None, password=None, auth_source="admin", auth_mechanism="SCRAM-SHA-1"):
+    cls.DATABASE = database
+
     if username and password:
       cls.CLIENT = MongoClient(uri, port, username=username, password=password, authSource=auth_source, authMechanism=auth_mechanism)
     else:
       cls.CLIENT = MongoClient(uri, port)
-
-  @classmethod
-  def set_database(cls, new_database):
-    cls.DATABASE = new_database
 
   @property
   def id(self):
@@ -127,7 +125,6 @@ class MongoModel(object, metaclass=MongoModelMeta):
     if errors:
       raise ValueError("Data error(s): {}".format(errors))
 
-    # TODO: actually save to database here
     if not self._id:
       result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(self.serialize())
       self._id = result.inserted_id
