@@ -1,12 +1,30 @@
-from graphstore.models import MongoModel, Graph, Node, Link, ModelField, StringField, ListField, FloatField, DictField
+from graphstore.models import MongoModel, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BytesField, ListField, FloatField, DictField
+import bcrypt
 
 
 # Create your models here.
 class Account(MongoModel):
   username = StringField(max_length=50)
-  password = StringField()
+  password = BytesField()
   email = StringField()
   webs = ListField(ModelField('Web'))
+
+  def __init__(self, **kwargs):
+    kwargs['password'] = bcrypt.hashpw(bytes(kwargs['password'], encoding='utf-8'), bcrypt.gensalt())  # hash it pronto!
+    super().__init__(**kwargs)
+
+  @classmethod
+  def authenticate(cls, username, password):
+    try:
+      account = cls.find_one({'username': username})
+
+      if bcrypt.hashpw(password, account.password) == account.password:
+        return account
+      else:
+        return None
+
+    except ObjectNotFound:
+      return None
 
 
 class Vertex(MongoModel):
