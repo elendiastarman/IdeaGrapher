@@ -10,11 +10,16 @@ class Account(MongoModel):
   webs = ListField(ModelField('Web'))
 
   def __init__(self, **kwargs):
-    kwargs['password'] = bcrypt.hashpw(bytes(kwargs['password'], encoding='utf-8'), bcrypt.gensalt())  # hash it pronto!
+    if isinstance(kwargs['password'], str):
+      kwargs['password'] = bcrypt.hashpw(bytes(kwargs['password'], encoding='utf-8'), bcrypt.gensalt())  # hash it pronto!
+
     super().__init__(**kwargs)
 
   @classmethod
   def authenticate(cls, username, password):
+    if isinstance(password, str):
+      password = bytes(password, encoding='utf-8')
+
     try:
       account = cls.find_one({'username': username})
 
@@ -25,6 +30,9 @@ class Account(MongoModel):
 
     except ObjectNotFound:
       return None
+
+  def json(self):
+    return super().json(exclude=['password'])
 
 
 class Vertex(MongoModel):

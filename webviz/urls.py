@@ -19,8 +19,8 @@ from webviz.views import favicon, home_view, register_view, login_view, logout_v
 
 urlpatterns = [
     url(r'favicon.*', favicon),
-    url(r'', home_view, name='home'),
     url(r'login', login_view, name='login'),
     url(r'register', register_view, name='register'),
     url(r'logout', logout_view, name='logout'),
+    url(r'', home_view, name='home'),
 ]

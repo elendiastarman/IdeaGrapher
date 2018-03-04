@@ -152,16 +152,16 @@ class MongoModel(object, metaclass=MongoModelMeta):
     # if self.dirty:
     #   pass
 
-  def serialize(self):
-    return {field_name: field.serialize() for field_name, field in self.fields.items() if not isinstance(field, RawField)}
+  def serialize(self, exclude=[]):
+    return {field_name: field.serialize() for field_name, field in self.fields.items() if not isinstance(field, RawField) and field_name not in exclude}
 
-  def serialize_with_id(self):
-    data = self.serialize()
+  def serialize_with_id(self, exclude=[]):
+    data = self.serialize(exclude=exclude)
     data['id'] = self.id
     return data
 
-  def json(self):
-    return json.dumps(self.serialize_with_id())
+  def json(self, exclude):
+    return json.dumps(self.serialize_with_id(exclude=exclude))
 
   @classmethod
   def deserialize(cls, data):
@@ -343,6 +343,9 @@ class BytesField(MongoField):
   def __init__(self, **kwargs):
     kwargs.setdefault('max_length', 0)
     super().__init__(**kwargs)
+
+  def serialize(self):
+    return self.value
 
   def validate(self):
     super().validate()

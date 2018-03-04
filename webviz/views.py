@@ -6,12 +6,12 @@ from graphstore.models import MongoModel, Graph  # , Node, Link
 from .models import Account
 from .forms import LoginForm
 
+MongoModel.connect_to_database("test", "localhost", 27017)
+
 
 # Create your views here.
 def home_view(request, **kwargs):
   context = {}
-
-  MongoModel.connect_to_database("test", "localhost", 27017)
 
   # print("user:", request.user)
 
@@ -19,7 +19,7 @@ def home_view(request, **kwargs):
   context['nodes'] = graph.nodes
   context['links'] = graph.links
 
-  return render(request, 'graphstore/home.html', context)
+  return render(request, 'webviz/home.html', context)
 
 
 def favicon(request, **kwargs):
@@ -37,19 +37,23 @@ def login_view(request, **kwargs):
     if form.is_valid():
       username = form.cleaned_data['username']
       password = form.cleaned_data['password']
+      print("username: {}, password: {}".format(username, password))
       user = Account.authenticate(username, password)
+      print("user:", user)
+      print("accounts:", [a.json() for a in Account.find({})])
 
       if user is not None:
         login(request, user)
-        return HttpResponseRedirect('/')
+        return HttpResponseRedirect('')
 
       else:
-        pass  # return 'invalid login' error message
+        # TODO: return 'invalid login' error message
+        form = LoginForm(initial={'username': username})
 
   else:
     form = LoginForm()
 
-  return render(request, 'login.html', {'form': form})
+  return render(request, 'webviz/login.html', {'form': form})
 
 
 def login_ajax(request, **kwargs):
