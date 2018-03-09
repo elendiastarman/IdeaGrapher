@@ -8,6 +8,7 @@ class Account(MongoModel):
   password = BytesField()
   email = StringField()
   webs = ListField(ModelField('Web'))
+  session_auth_hash = StringField(default="")
 
   def __init__(self, **kwargs):
     if isinstance(kwargs['password'], str):
@@ -33,6 +34,12 @@ class Account(MongoModel):
 
   def json(self):
     return super().json(exclude=['password'])
+
+  def get_session_auth_hash(self):
+    return self.session_auth_hash
+
+  def set_session_auth_hash(self, new_session_auth_hash):
+    self.session_auth_hash = new_session_auth_hash
 
 
 class Vertex(MongoModel):

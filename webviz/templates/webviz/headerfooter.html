@@ -8,7 +8,7 @@
 
 {% block body %}
     <div id="header">
-        {% if not request.user.is_anonymous %}
+        {% if request.user and request.user.is_authenticated %}
             <p style="float:right">Welcome {{request.user.username}}! <a href="{% url 'logout' %}">Logout</a></p>
         {% else %}
             <p style="float:right"><a href="{% url 'login' %}">Sign in</a> or <a href="{% url 'register' %}">sign up</a>!</p>

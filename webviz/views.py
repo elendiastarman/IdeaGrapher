@@ -1,10 +1,10 @@
-from django.shortcuts import render
-from django.contrib.auth import login, logout
-from django.http import Http404, HttpResponseRedirect
+from django.shortcuts import render, redirect
+from django.http import Http404
 from graphstore.models import MongoModel, Graph  # , Node, Link
 
 from .models import Account
 from .forms import LoginForm
+from .auth import login, logout
 
 MongoModel.connect_to_database("test", "localhost", 27017)
 
@@ -13,7 +13,7 @@ MongoModel.connect_to_database("test", "localhost", 27017)
 def home_view(request, **kwargs):
   context = {}
 
-  # print("user:", request.user)
+  print("user:", request.user)
 
   graph = Graph.find_one({'slug': 'plant-pollinator1'})
   context['nodes'] = graph.nodes
@@ -38,13 +38,14 @@ def login_view(request, **kwargs):
       username = form.cleaned_data['username']
       password = form.cleaned_data['password']
       print("username: {}, password: {}".format(username, password))
+
       user = Account.authenticate(username, password)
       print("user:", user)
       print("accounts:", [a.json() for a in Account.find({})])
 
       if user is not None:
         login(request, user)
-        return HttpResponseRedirect('')
+        return redirect('home')
 
       else:
         # TODO: return 'invalid login' error message
@@ -62,7 +63,9 @@ def login_ajax(request, **kwargs):
 
 def logout_view(request, **kwargs):
   logout(request)
+
   # redirect
+  return redirect('home')
 
 
 def forgot_password_view(request, **kwargs):

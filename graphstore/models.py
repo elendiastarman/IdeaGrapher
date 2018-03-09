@@ -160,7 +160,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
     data['id'] = self.id
     return data
 
-  def json(self, exclude):
+  def json(self, exclude=[]):
     return json.dumps(self.serialize_with_id(exclude=exclude))
 
   @classmethod
