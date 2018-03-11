@@ -1,5 +1,5 @@
 # all the imports
-# import os
+import os
 from flask import Flask  # , request, session, g, redirect, url_for, abort, render_template, flash  # noqa
 
 app = Flask(__name__)  # create the application instance :)
@@ -13,6 +13,7 @@ app.config.update(dict(
     PASSWORD='default'
 ))
 
+os.environ.setdefault('WEBVIZ_SETTINGS', 'webviz.settings')
 app.config.from_envvar('WEBVIZ_SETTINGS', silent=True)
 
 import webviz.views
