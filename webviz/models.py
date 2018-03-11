@@ -13,6 +13,7 @@ class Account(MongoModel):
   session_auth_hash = StringField(default="")
 
   username_index = MongoIndex(['username'], unique=True)
+  email_index = MongoIndex(['email'], unique=True)
 
   def __init__(self, **kwargs):
     if isinstance(kwargs['password'], str):
@@ -23,6 +24,8 @@ class Account(MongoModel):
   def save(self):
     if self.session_auth_hash is None:
       self.session_auth_hash = ''.join([random.choice(string.ascii_letters) for i in range(20)])
+
+    super().save()
 
   @classmethod
   def authenticate(cls, username, password):
