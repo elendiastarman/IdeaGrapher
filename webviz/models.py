@@ -1,5 +1,7 @@
 from graphstore.models import MongoModel, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BytesField, ListField, FloatField, DictField
 import bcrypt
+import random
+import string
 
 
 # Create your models here.
@@ -15,6 +17,10 @@ class Account(MongoModel):
       kwargs['password'] = bcrypt.hashpw(bytes(kwargs['password'], encoding='utf-8'), bcrypt.gensalt())  # hash it pronto!
 
     super().__init__(**kwargs)
+
+  def save(self):
+    if self.session_auth_hash is None:
+      self.session_auth_hash = ''.join([random.choice(string.ascii_letters) for i in range(20)])
 
   @classmethod
   def authenticate(cls, username, password):

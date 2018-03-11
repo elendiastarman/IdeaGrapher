@@ -1,14 +1,12 @@
-{% extends 'webviz/headerfooter.html' %}
-
-{% load staticfiles %}
+{% extends 'headerfooter.html' %}
 
 {% block content %}
     <h2>Not a member yet?</h2>
     
-    <form method="post" action="{% url 'register' %}">
+    <!-- {# <form method="post" action="{% url 'login' %}">
         {% csrf_token %}
         <table>
-            {% for field in reg_form %}
+            {% for field in form %}
                 <tr>
                     <td>{{ field.label_tag }}</td>
                     <td>{{ field }}</td>
@@ -21,9 +19,21 @@
             {% endfor %}
         </table>
 
-        <input type="submit" value="register" />
+        <input type="submit" value="login" />
         {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+    </form> #} -->
+
+    {% from "_formhelpers.html" import render_field %}
+    <form method="post">
+        {{ crsf_token }}
+        <dl>
+            {{ render_field(form.username) }}
+            {{ render_field(form.email) }}
+            {{ render_field(form.password) }}
+            {{ render_field(form.confirm) }}
+        </dl>
+        <p><input type="submit" value="Register"/></p>
     </form>
     
-    <p><em>Meant to <a href="{% url 'login' %}">sign in</a>?</em></p>
+    <p><em>Meant to <a href="{{ url_for('login_view') }}">sign in</a>?</em></p>
 {% endblock %}

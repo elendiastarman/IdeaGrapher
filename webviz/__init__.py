@@ -13,7 +13,7 @@ app.config.update(dict(
     PASSWORD='default'
 ))
 
-os.environ.setdefault('WEBVIZ_SETTINGS', 'webviz.settings')
-app.config.from_envvar('WEBVIZ_SETTINGS', silent=True)
+os.environ.setdefault('WEBVIZ_SETTINGS', 'settings.py')
+app.config.from_envvar('WEBVIZ_SETTINGS')
 
-import webviz.views
+import webviz.views  # noqa

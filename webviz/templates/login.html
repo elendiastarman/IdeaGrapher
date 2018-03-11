@@ -1,11 +1,9 @@
-{% extends 'webviz/headerfooter.html' %}
-
-{% load staticfiles %}
+{% extends 'headerfooter.html' %}
 
 {% block content %}
     <h2>Welcome back!</h2>
     
-    <form method="post" action="{% url 'login' %}">
+    <!-- {# <form method="post" action="{% url 'login' %}">
         {% csrf_token %}
         <table>
             {% for field in form %}
@@ -23,7 +21,17 @@
 
         <input type="submit" value="login" />
         {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+    </form> #} -->
+
+    {% from "_formhelpers.html" import render_field %}
+    <form method="post">
+        {{ form.csrf_token }}
+        <dl>
+            {{ render_field(form.username) }}
+            {{ render_field(form.password) }}
+        </dl>
+        <p><input type="submit" value="Login"/></p>
     </form>
     
-    <p><em>Meant to <a href="{% url 'register' %}">sign up</a>?</em></p>
+    <p><em>Meant to <a href="{{ url_for('register_view') }}">sign up</a>?</em></p>
 {% endblock %}

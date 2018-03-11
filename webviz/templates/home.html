@@ -40,5 +40,4 @@
 {% block scripts %}
     {{ super() }}
     <script type="text/javascript" src="{{ url_for('static', filename='home.js') }}"></script>
-    <script type="text/javascript">window.CSRF_TOKEN = "{{ csrf_token }}";</script>
 {% endblock %}

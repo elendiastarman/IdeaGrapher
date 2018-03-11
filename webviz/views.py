@@ -34,14 +34,15 @@ def register_view(**kwargs):
   pass
 
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login_view(**kwargs):
   if request.method == 'POST':
-    form = LoginForm(request.POST)
+    form = LoginForm(request.form)
+    print("Form:", form)
 
-    if form.is_valid():
-      username = form.cleaned_data['username']
-      password = form.cleaned_data['password']
+    if form.validate():
+      username = form.username.data
+      password = form.password.data
       print("username: {}, password: {}".format(username, password))
 
       user = Account.authenticate(username, password)
@@ -49,17 +50,21 @@ def login_view(**kwargs):
       print("accounts:", [a.json() for a in Account.find({})])
 
       if user is not None:
-        login(request, user)
-        return redirect('home')
+        login(session, user)
+        return redirect('/')
 
       else:
         # TODO: return 'invalid login' error message
         form = LoginForm(initial={'username': username})
+        form.errors['password'] = "Invalid password"
+
+    else:
+      print("Errors:", form.errors)
 
   else:
     form = LoginForm()
 
-  return render_template(request, 'webviz/login.html', {'form': form})
+  return render_template('login.html', **{'form': form})
 
 
 def login_ajax(**kwargs):
@@ -68,10 +73,10 @@ def login_ajax(**kwargs):
 
 @app.route('/logout')
 def logout_view(**kwargs):
-  logout(request)
+  logout(session)
 
   # redirect
-  return redirect('home')
+  return redirect('/')
 
 
 def forgot_password_view(**kwargs):
