@@ -70,6 +70,7 @@ function pairKey(node1id, node2id) {
 
 function load_data() {
 	$('#nodes p').each(function(i, e){
+		console.log(e);
 		var data = JSON.parse($(e).html());
 		// console.log(i, data);
 		nodes[data['id']] = data;

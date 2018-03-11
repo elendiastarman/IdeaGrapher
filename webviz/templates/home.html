@@ -1,9 +1,8 @@
-{% extends 'webviz/headerfooter.html' %}
+{% extends 'headerfooter.html' %}
 
-{% load staticfiles %}
 {% block styling %}
-    {{ block.super }}
-    <link rel="stylesheet" type="text/css" href="{% static 'webviz/home.css' %}" />
+    {{ super() }}
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='home.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -20,26 +19,26 @@
     <div id="data" hidden>
     	<div id="nodes">
 		    {% for node in nodes %}
-		    	<p>{{node.json}}</p>
+		    	<p>{{node.json()}}</p>
 		    {% endfor %}
 		</div>
 
 		<div id="links">
 		    {% for link in links %}
-		    	<p>{{link.json}}</p>
+		    	<p>{{link.json()}}</p>
 		    {% endfor %}
 		</div>
 
 		<div id="graphs">
 		    {% for graph in graphs %}
-		    	<p>{{graph.json}}</p>
+		    	<p>{{graph.json()}}</p>
 		    {% endfor %}
 		</div>
 	</div>
 {% endblock %}
 
 {% block scripts %}
-    {{ block.super }}
-    <script type="text/javascript" src="{% static 'webviz/home.js' %}"></script>
+    {{ super() }}
+    <script type="text/javascript" src="{{ url_for('static', filename='home.js') }}"></script>
     <script type="text/javascript">window.CSRF_TOKEN = "{{ csrf_token }}";</script>
 {% endblock %}

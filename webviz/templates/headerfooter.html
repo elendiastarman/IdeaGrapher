@@ -1,22 +1,21 @@
-{% extends 'webviz/shell.html' %}
+{% extends 'shell.html' %}
 
-{% load staticfiles %}
 {% block styling %}
-    {{ block.super }}
-    <link rel="stylesheet" type="text/css" href="{% static 'webviz/headerfooter.css' %}" />
+    {{ super() }}
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='headerfooter.css') }}" />
 {% endblock %}
 
 {% block body %}
     <div id="header">
         {% if request.user and request.user.is_authenticated %}
-            <p style="float:right">Welcome {{request.user.username}}! <a href="{% url 'logout' %}">Logout</a></p>
+            <p style="float:right">Welcome {{request.user.username}}! <a href="{{ url_for('logout_view') }}">Logout</a></p>
         {% else %}
-            <p style="float:right"><a href="{% url 'login' %}">Sign in</a> or <a href="{% url 'register' %}">sign up</a>!</p>
+            <p style="float:right"><a href="{{ url_for('login_view') }}">Sign in</a> or <a href="{{ url_for('register_view') }}">sign up</a>!</p>
         {% endif %}
         
         <div style="float:left">
             <ul class="tabs">
-                <li><a href="{% url 'home' %}">LOGO</a></li>
+                <li><a href="{{ url_for('home_view') }}">LOGO</a></li>
                 <!--<li>Artists</li>-->
                 <!--<li>Items</li>
                 <li>Tags</li>
@@ -37,7 +36,7 @@
 {% endblock %}
 
 {% block scripts %}
-    {{ block.super }}
+    {{ super() }}
     <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
     <script src="https://d3js.org/d3.v4.min.js"></script>
 {% endblock %}
