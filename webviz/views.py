@@ -1,5 +1,5 @@
-from django.shortcuts import render, redirect
-from django.http import Http404
+from flask import request, session, render_template, redirect, abort
+from . import app
 from graphstore.models import MongoModel, Graph  # , Node, Link
 
 from .models import Account
@@ -10,27 +10,32 @@ MongoModel.connect_to_database("test", "localhost", 27017)
 
 
 # Create your views here.
-def home_view(request, **kwargs):
+@app.route('/')
+def home_view(**kwargs):
   context = {}
 
-  print("user:", request.user)
+  # print("user:", request.user)
+  print("session.items:", session.items())
 
   graph = Graph.find_one({'slug': 'plant-pollinator1'})
   context['nodes'] = graph.nodes
   context['links'] = graph.links
 
-  return render(request, 'webviz/home.html', context)
+  return render_template('home.html', **context)
 
 
-def favicon(request, **kwargs):
-  raise Http404()
+@app.route('/favicon')
+def favicon(**kwargs):
+  abort(404)
 
 
-def register_view(request, **kwargs):
+@app.route('/register')
+def register_view(**kwargs):
   pass
 
 
-def login_view(request, **kwargs):
+@app.route('/login')
+def login_view(**kwargs):
   if request.method == 'POST':
     form = LoginForm(request.POST)
 
@@ -54,19 +59,20 @@ def login_view(request, **kwargs):
   else:
     form = LoginForm()
 
-  return render(request, 'webviz/login.html', {'form': form})
+  return render_template(request, 'webviz/login.html', {'form': form})
 
 
-def login_ajax(request, **kwargs):
+def login_ajax(**kwargs):
   pass
 
 
-def logout_view(request, **kwargs):
+@app.route('/logout')
+def logout_view(**kwargs):
   logout(request)
 
   # redirect
   return redirect('home')
 
 
-def forgot_password_view(request, **kwargs):
+def forgot_password_view(**kwargs):
   pass

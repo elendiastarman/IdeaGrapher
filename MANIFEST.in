@@ -1,0 +1,2 @@
+graft webviz/templates
+graft webviz/static
