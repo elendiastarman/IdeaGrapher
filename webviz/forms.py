@@ -1,12 +1,25 @@
-from django import forms
+from wtforms import Form, StringField, PasswordField, validators
+from wtforms.csrf.session import SessionCSRF
+from flask import session
+from . import app
 
 
-class RegisterForm(forms.Form):
-  username = forms.CharField(label='Username', max_length=50)
-  password = forms.CharField(label='Password', min_length=8)
-  email = forms.CharField(label='Email')
+class BaseForm(Form):
+    class Meta:
+        csrf = True
+        csrf_class = SessionCSRF
+        csrf_secret = app.config['CSRF_SECRET_KEY']
+
+        @property
+        def csrf_context(self):
+            return session
 
 
-class LoginForm(forms.Form):
-  username = forms.CharField(label='Username', max_length=50)
-  password = forms.CharField(label='Password', min_length=8)
+class LoginForm(BaseForm):
+  username = StringField('Username', [validators.Length(min=4, max=50)])
+  password = PasswordField('Password', [validators.Length(min=8, max=64), validators.DataRequired()])
+
+
+class RegisterForm(LoginForm):
+  email = StringField('Email', [validators.Length(min=6)])
+  confirm = PasswordField('Repeat password', [validators.EqualTo('password', message='Passwords must match')])
