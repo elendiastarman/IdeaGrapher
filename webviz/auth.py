@@ -1,6 +1,3 @@
-# Copied wholesale from django.contrib.auth and stripped down
-from django.utils.crypto import constant_time_compare
-
 from bson import ObjectId
 from .models import Account, ObjectNotFound
 
@@ -8,6 +5,12 @@ SESSION_KEY = '_auth_user_id'
 HASH_SESSION_KEY = '_auth_user_hash'
 LANGUAGE_SESSION_KEY = '_language'
 REDIRECT_FIELD_NAME = 'next'
+
+
+# from django.utils.crypto import constant_time_compare
+# TODO: find replacement/actual implementation
+def constant_time_compare(a, b):
+  return a == b
 
 
 def login(session, user, backend=None):
