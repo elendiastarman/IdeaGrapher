@@ -9,7 +9,6 @@ CSRF_SECRET_KEY = bytes(''.join(SECRET_KEY[::-1]), encoding='utf-8')  # quick ha
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'US/Eastern'

@@ -1,6 +1,8 @@
 from bson import ObjectId
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 import json
+
+from . import MONGO_CLIENT, MONGO_DATABASE
 
 
 # ## Base classes
@@ -20,10 +22,27 @@ class MongoModelMeta(type):
 
       # initialize model class' fields variable and stuff it with the defined fields
       cls.fields = {}
-      for field_name in dir(cls):
-        attr = getattr(cls, field_name)
+      cls.indexes = {}
+      for attr_name in dir(cls):
+        attr = getattr(cls, attr_name)
         if isinstance(attr, MongoField):
-          cls.fields[field_name] = attr
+          cls.fields[attr_name] = attr
+
+        if isinstance(attr, MongoIndex):
+          cls.indexes[attr_name] = attr
+
+      index_info = cls.collection().index_information()
+      for index_name, index in cls.indexes.items():
+        if index_name not in index_info:
+          index.kwargs['name'] = index_name
+
+          for i, key in enumerate(index.keys):
+            if isinstance(key, str):
+              index.keys[i] = (key, ASCENDING)
+
+          print("Creating index {} with keys {} and kwargs {}...".format(index_name, index.keys, index.kwargs))
+          cls.collection().create_index(index.keys, **index.kwargs)
+          print("...done.")
 
       if name in cls.dependencies:
         field_instances = cls.dependencies[name]
@@ -34,9 +53,10 @@ class MongoModelMeta(type):
 
 class MongoModel(object, metaclass=MongoModelMeta):
   fields = {}
+  indexes = {}
   dependencies = {}
-  CLIENT = None
-  DATABASE = None
+  CLIENT = MONGO_CLIENT
+  DATABASE = MONGO_DATABASE
   COLLECTION = None
   STRICT = True
   _id = None
@@ -48,7 +68,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
     self.DATABASE = _database or self.__class__.DATABASE
     if not self.DATABASE:
-      raise ValueError("Either MongoModel.DATABASE or _database must not be None. Use MongoModel.set_database.")
+      raise ValueError("Either MongoModel.DATABASE or _database must not be None. Use MongoModel.connect_to_database.")
 
     if _collection:
       self.COLLECTION = _collection
@@ -68,6 +88,10 @@ class MongoModel(object, metaclass=MongoModelMeta):
   @property
   def id(self):
     return str(self._id) if self._id else None
+
+  @classmethod
+  def collection(cls):
+    return cls.CLIENT[cls.DATABASE][cls.COLLECTION]
 
   def __getattribute__(self, name):
     if name != "fields" and name in self.fields:
@@ -197,19 +221,19 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
   @classmethod
   def find(cls, query={}):
-    if not cls.CLIENT:
+    if not MONGO_CLIENT:
       raise ValueError("Must be connected to Mongo.")
 
-    docs = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find(query)
+    docs = MONGO_CLIENT[MONGO_DATABASE][cls.COLLECTION].find(query)
 
     return [cls.get_or_make_ref(cls, id=doc['_id'], data=doc) for doc in docs]
 
   @classmethod
   def find_one(cls, query):
-    if not cls.CLIENT:
+    if not MONGO_CLIENT:
       raise ValueError("Must be connected to Mongo.")
 
-    doc = cls.CLIENT[cls.DATABASE][cls.COLLECTION].find_one(query)
+    doc = MONGO_CLIENT[MONGO_DATABASE][cls.COLLECTION].find_one(query)
     if doc is None:
       raise ObjectNotFound("No {} was found with query {}.".format(cls, query))
 
@@ -420,6 +444,13 @@ class ModelField(MongoField):
       kwargs.setdefault('model_class', model_class)
 
     super().__init__(**kwargs)
+
+
+# ## index stuff
+class MongoIndex(object):
+  def __init__(self, keys, **kwargs):
+    self.keys = keys
+    self.kwargs = kwargs
 
 
 # ## Custom error classes

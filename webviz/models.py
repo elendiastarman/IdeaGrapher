@@ -1,4 +1,4 @@
-from graphstore.models import MongoModel, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BytesField, ListField, FloatField, DictField
+from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BytesField, ListField, FloatField, DictField
 import bcrypt
 import random
 import string
@@ -11,6 +11,8 @@ class Account(MongoModel):
   email = StringField()
   webs = ListField(ModelField('Web'))
   session_auth_hash = StringField(default="")
+
+  username_index = MongoIndex(['username'], unique=True)
 
   def __init__(self, **kwargs):
     if isinstance(kwargs['password'], str):

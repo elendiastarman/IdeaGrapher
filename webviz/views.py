@@ -1,12 +1,10 @@
 from flask import request, session, render_template, redirect, abort
 from . import app
-from graphstore.models import MongoModel, Graph  # , Node, Link
+from graphstore.models import Graph  # , Node, Link
 
 from .models import Account
 from .forms import LoginForm
 from .auth import login, logout
-
-MongoModel.connect_to_database("test", "localhost", 27017)
 
 
 # Create your views here.
