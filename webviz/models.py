@@ -1,4 +1,4 @@
-from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BytesField, ListField, FloatField, DictField
+from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BytesField, ListField, EnumField, DictField
 import bcrypt
 import random
 import string
@@ -55,11 +55,15 @@ class Account(MongoModel):
 
 class Vertex(MongoModel):
   node = ModelField(Node)
-  coords = ListField(FloatField)
+  # coords = ListField(FloatField)
+  labels = ListField(StringField)
+  subwebs = ListField(ModelField('Web'))
+  data = DictField()
 
 
 class Edge(MongoModel):
   link = ModelField(Link)
+  kind = EnumField(["connected", "related", "directed"])
   start_vertices = ListField(ModelField(Vertex))
   end_vertices = ListField(ModelField(Vertex))
   data = DictField()
@@ -67,9 +71,11 @@ class Edge(MongoModel):
 
 class Web(MongoModel):
   graph = ModelField(Graph)
+  name = StringField(min_length=1)
   vertices = ListField(ModelField(Vertex))
   edges = ListField(ModelField(Edge))
   rules = ListField(ModelField('Rule'))
+  data = DictField()
 
 
 class Rule(MongoModel):

@@ -460,15 +460,11 @@ class ObjectNotFound(ValueError):
 
 # ## Node-related models
 class Node(MongoModel):
-  shortname = StringField(max_length=30)
-  blurb = StringField(max_length=200, default="")
-  explanation = StringField(default="")
-  subgraph = ListField(ModelField('Graph'))
+  subgraphs = ListField(ModelField('Graph'))
   data = DictField()
 
 
 class Link(MongoModel):
-  kind = EnumField(["connected", "related", "directed"])
   sources = ListField(ModelField(Node))
   sinks = ListField(ModelField(Node))
   data = DictField()

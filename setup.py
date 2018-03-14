@@ -7,5 +7,7 @@ setup(
     install_requires=[
         'flask',
         'pymongo',
+        'bcrypt',
+        'wtforms',
     ],
 )
