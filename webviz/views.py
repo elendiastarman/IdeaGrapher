@@ -1,15 +1,43 @@
-from flask import request, session, render_template, redirect, abort
+from flask import request, session, render_template, redirect, abort, url_for
 from . import app
 from graphstore.models import Graph  # , Node, Link
 
-from .models import Account
+from .models import Account, Web
 from .forms import LoginForm
-from .auth import login, logout
+from .auth import login, logout, get_user
 
 
 # Create your views here.
-@app.route('/')
+@app.route('/', methods=['GET'])
 def home_view(**kwargs):
+  context = {}
+  context['webs'] = []
+  return render_template('home.html', **context)
+
+
+@app.route('/newweb', methods=['GET'])
+def new_web_view(**kwargs):
+  account = get_user(request.session)
+
+  graph = Graph()
+  graph.save()
+
+  web = Web(owner=account.genid, graph=graph)
+  web.save()
+
+  new_web_id = web.id
+
+  return redirect(url_for('web_view', new_web_id))
+
+
+@app.route('/render/<webid>', methods=['GET'])
+def render_view(webid, **kwargs):
+  context = {'webid': webid}
+
+  return render_template('render.html', **context)
+
+
+def deprecated_view(**kwargs):
   context = {}
 
   # print("user:", request.user)
@@ -20,6 +48,11 @@ def home_view(**kwargs):
   context['links'] = graph.links
 
   return render_template('home.html', **context)
+
+
+@app.route('/', methods=['POST'])
+def test(**kwargs):
+  pass
 
 
 @app.route('/favicon')

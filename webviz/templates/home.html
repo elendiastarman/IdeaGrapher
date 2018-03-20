@@ -6,35 +6,17 @@
 {% endblock %}
 
 {% block content %}
-    <h1>IdeaGrapher</h1>
-
-    <svg id="display"></svg>
+    <h1>Your webs</h1>
 
     <br/><br/>
 
-    <button id='start'>Start</button>
-    <button id='stop'>Stop</button>
-    <button id='step'>Step</button>
+    <ul id="webs">
+        {% for web in webs %}
+            <li><a href="{{ url_for('render', web_id=web.id) }}">{{ web.name }}</a></li>
+        {% endfor %}
+    </ul>
 
-    <div id="data" hidden>
-    	<div id="nodes">
-		    {% for node in nodes %}
-		    	<p>{{node.json()}}</p>
-		    {% endfor %}
-		</div>
-
-		<div id="links">
-		    {% for link in links %}
-		    	<p>{{link.json()}}</p>
-		    {% endfor %}
-		</div>
-
-		<div id="graphs">
-		    {% for graph in graphs %}
-		    	<p>{{graph.json()}}</p>
-		    {% endfor %}
-		</div>
-	</div>
+    <a href="{{ url_for('new_web') }}"
 {% endblock %}
 
 {% block scripts %}

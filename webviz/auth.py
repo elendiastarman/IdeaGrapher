@@ -26,24 +26,22 @@ def login(session, user, backend=None):
   user_id = session.get(SESSION_KEY, None)
 
   if user_id:
-    if user_id != user.id or (session_auth_hash and not constant_time_compare(session.get(HASH_SESSION_KEY, ''), session_auth_hash)):
+    if user_id != user.genid or (session_auth_hash and not constant_time_compare(session.get(HASH_SESSION_KEY, ''), session_auth_hash)):
       # To avoid reusing another user's session, create a new, empty
       # session if the existing session corresponds to a different
       # authenticated user.
-      pass
+
       # session.flush()
-      session['user'] = None
-      session.pop(SESSION_KEY, None)
-      session.pop(HASH_SESSION_KEY, None)
+      flush(session)
 
   else:
     pass
     # session.cycle_key()
 
-  session[SESSION_KEY] = user.id
+  session[SESSION_KEY] = user.genid
   session[HASH_SESSION_KEY] = session_auth_hash
 
-  session['user'] = user.serialize(exclude=['password'])
+  session['user'] = user.serialize(exclude=['_id', 'password'])
 
   pass
   # rotate_token(request)
@@ -70,9 +68,7 @@ def logout(session):
   # if language is not None:
   #   session[LANGUAGE_SESSION_KEY] = language
 
-  session['user'] = None
-  session.pop(SESSION_KEY, None)
-  session.pop(HASH_SESSION_KEY, None)
+  flush(session)
 
 
 def get_user(session):
@@ -85,7 +81,7 @@ def get_user(session):
 
   if user_id:
     try:
-      user = Account.find_one({'_id': ObjectId(user_id)})
+      user = Account.find_one({'genid': ObjectId(user_id)})
 
     except ObjectNotFound:
       return None
@@ -95,10 +91,16 @@ def get_user(session):
     session_hash_verified = session_hash and constant_time_compare(session_hash, user.get_session_auth_hash())
 
     if not session_hash_verified:
-      session.flush()
+      flush(session)
       user = None
 
   return user
+
+
+def flush(session):
+  session['user'] = None
+  session.pop(SESSION_KEY, None)
+  session.pop(HASH_SESSION_KEY, None)
 
 
 def update_session_auth_hash(session, user):

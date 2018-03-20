@@ -471,9 +471,6 @@ class Link(MongoModel):
 
 
 class Graph(MongoModel):
-  slug = StringField(max_length=30)
-  blurb = StringField(max_length=200, default="")
-  explanation = StringField(default="")
   links = ListField(ModelField(Link))
-  nodes = ListField(ModelField('Node'))
+  nodes = ListField(ModelField(Node))
   data = DictField()

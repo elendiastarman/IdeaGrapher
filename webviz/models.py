@@ -10,16 +10,21 @@ class Account(MongoModel):
   password = BytesField()
   email = StringField()
   webs = ListField(ModelField('Web'))
-  session_auth_hash = StringField(default="")
+  session_auth_hash = StringField(default='')
+  genid = StringField()
 
   username_index = MongoIndex(['username'], unique=True)
   email_index = MongoIndex(['email'], unique=True)
+  genid_index = MongoIndex(['genid'], unique=True)
 
   def __init__(self, **kwargs):
     if isinstance(kwargs['password'], str):
       kwargs['password'] = bcrypt.hashpw(bytes(kwargs['password'], encoding='utf-8'), bcrypt.gensalt())  # hash it pronto!
 
     super().__init__(**kwargs)
+
+    if self._id is None:
+      self.genid = ''.join([random.choice(string.ascii_letters) for i in range(20)])
 
   def save(self):
     if self.session_auth_hash is None:
@@ -43,8 +48,8 @@ class Account(MongoModel):
     except ObjectNotFound:
       return None
 
-  def json(self):
-    return super().json(exclude=['password'])
+  def json(self, exclude=[]):
+    return super().json(exclude=exclude + ['password'])
 
   def get_session_auth_hash(self):
     return self.session_auth_hash
@@ -55,7 +60,6 @@ class Account(MongoModel):
 
 class Vertex(MongoModel):
   node = ModelField(Node)
-  # coords = ListField(FloatField)
   labels = ListField(StringField)
   subwebs = ListField(ModelField('Web'))
   data = DictField()
@@ -63,7 +67,7 @@ class Vertex(MongoModel):
 
 class Edge(MongoModel):
   link = ModelField(Link)
-  kind = EnumField(["connected", "related", "directed"])
+  kind = EnumField(['connected', 'related', 'directed'], default='connected')
   start_vertices = ListField(ModelField(Vertex))
   end_vertices = ListField(ModelField(Vertex))
   data = DictField()
@@ -71,11 +75,16 @@ class Edge(MongoModel):
 
 class Web(MongoModel):
   graph = ModelField(Graph)
-  name = StringField(min_length=1)
+  name = StringField(default='')  # '' means it's untitled
+  owner = StringField()  # Account.genid
+  visibility = EnumField(['private', 'shared', 'public'], default='private')
   vertices = ListField(ModelField(Vertex))
   edges = ListField(ModelField(Edge))
   rules = ListField(ModelField('Rule'))
   data = DictField()
+
+  visibility_index = MongoIndex(['visibility'])
+  owner_index = MongoIndex(['owner'])
 
 
 class Rule(MongoModel):

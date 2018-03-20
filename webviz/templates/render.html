@@ -1,0 +1,43 @@
+{% extends 'headerfooter.html' %}
+
+{% block styling %}
+    {{ super() }}
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='render.css') }}" />
+{% endblock %}
+
+{% block content %}
+    <h1>IdeaGrapher</h1>
+
+    <svg id="display"></svg>
+
+    <br/><br/>
+
+    <button id='start'>Start</button>
+    <button id='stop'>Stop</button>
+    <button id='step'>Step</button>
+
+    <div id="data" hidden>
+    	<div id="nodes">
+		    {% for node in nodes %}
+		    	<p>{{node.json()}}</p>
+		    {% endfor %}
+		</div>
+
+		<div id="links">
+		    {% for link in links %}
+		    	<p>{{link.json()}}</p>
+		    {% endfor %}
+		</div>
+
+		<div id="graphs">
+		    {% for graph in graphs %}
+		    	<p>{{graph.json()}}</p>
+		    {% endfor %}
+		</div>
+	</div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript" src="{{ url_for('static', filename='render.js') }}"></script>
+{% endblock %}
