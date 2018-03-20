@@ -23,7 +23,7 @@ class Account(MongoModel):
 
     super().__init__(**kwargs)
 
-    if self._id is None:
+    if kwargs.get('deserializing', False) is False:
       self.genid = ''.join([random.choice(string.ascii_letters) for i in range(20)])
 
   def save(self):

@@ -1,7 +1,8 @@
 from flask import request, session, render_template, redirect, abort, url_for
-from . import app
-from graphstore.models import Graph  # , Node, Link
+from graphstore.models import Graph
+from bson import ObjectId
 
+from . import app
 from .models import Account, Web
 from .forms import LoginForm
 from .auth import login, logout, get_user
@@ -11,13 +12,20 @@ from .auth import login, logout, get_user
 @app.route('/', methods=['GET'])
 def home_view(**kwargs):
   context = {}
+
+  account = get_user(session)
+
   context['webs'] = []
+  if account:
+    context['webs'] = Web.find({'owner': account.genid})
+
   return render_template('home.html', **context)
 
 
 @app.route('/newweb', methods=['GET'])
 def new_web_view(**kwargs):
-  account = get_user(request.session)
+  print("session:", session)
+  account = get_user(session)
 
   graph = Graph()
   graph.save()
@@ -27,12 +35,15 @@ def new_web_view(**kwargs):
 
   new_web_id = web.id
 
-  return redirect(url_for('web_view', new_web_id))
+  return redirect(url_for('render_view', webid=new_web_id))
 
 
 @app.route('/render/<webid>', methods=['GET'])
 def render_view(webid, **kwargs):
   context = {'webid': webid}
+
+  web = Web.find_one({'_id': ObjectId(webid)})
+  context['web'] = web
 
   return render_template('render.html', **context)
 

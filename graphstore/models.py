@@ -214,7 +214,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
     if errors:
       raise ValueError("Errors during deserialization: {}".format(errors))
 
-    obj = cls(**deserialized_data)
+    obj = cls(**deserialized_data, deserializing=True)
     obj._id = data['_id']
 
     return obj
@@ -429,6 +429,10 @@ class EnumField(MongoField):
 
 
 class DictField(MongoField):
+  def __init__(self, **kwargs):
+    kwargs.setdefault('default', {})
+    super().__init__(**kwargs)
+
   def validate(self):
     super().validate()
 

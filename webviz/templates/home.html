@@ -10,13 +10,23 @@
 
     <br/><br/>
 
-    <ul id="webs">
-        {% for web in webs %}
-            <li><a href="{{ url_for('render', web_id=web.id) }}">{{ web.name }}</a></li>
-        {% endfor %}
-    </ul>
+    {% if session.user %}
+        <ul id="webs">
+            {% for web in webs %}
+                <li><a href="{{ url_for('render_view', webid=web.id) }}">
+                    {% if web.name %}
+                        {{ web.name }}
+                    {% else %}
+                        <em>Untitled</em>
+                    {% endif %}
+                </a></li>
+            {% endfor %}
+        </ul>
 
-    <a href="{{ url_for('new_web') }}"
+        <a href="{{ url_for('new_web_view') }}">+ New Web</a>
+    {% else %}
+        <p>Support for anonymous webs eventually!</p>
+    {% endif %}
 {% endblock %}
 
 {% block scripts %}

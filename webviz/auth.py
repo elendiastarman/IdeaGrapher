@@ -81,14 +81,14 @@ def get_user(session):
 
   if user_id:
     try:
-      user = Account.find_one({'genid': ObjectId(user_id)})
+      user = Account.find_one({'genid': user_id})
 
     except ObjectNotFound:
       return None
 
     # Verify the session
-    session_hash = session.get(HASH_SESSION_KEY)
-    session_hash_verified = session_hash and constant_time_compare(session_hash, user.get_session_auth_hash())
+    session_hash = session.get(HASH_SESSION_KEY, None)
+    session_hash_verified = session_hash is not None and constant_time_compare(session_hash, user.get_session_auth_hash())
 
     if not session_hash_verified:
       flush(session)

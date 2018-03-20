@@ -6,7 +6,13 @@
 {% endblock %}
 
 {% block content %}
-    <h1>IdeaGrapher</h1>
+    <h1>
+      {% if web.name %}
+        {{ web.name }}
+      {% else %}
+        <em>Untitled</em>
+      {% endif %}
+    </h1>
 
     <svg id="display"></svg>
 
