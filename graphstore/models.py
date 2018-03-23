@@ -170,14 +170,29 @@ class MongoModel(object, metaclass=MongoModelMeta):
     return errors
 
   def changed(self):
-    return self.serialize()
+    return self.serialize(include=self.dirty_fields())
 
-    # TODO: Identify only what changed
-    # if self.dirty:
-    #   pass
+  def dirty_fields(self):
+    fields = []
 
-  def serialize(self, exclude=[]):
-    return {field_name: field.serialize() for field_name, field in self.fields.items() if not isinstance(field, RawField) and field_name not in exclude}
+    for field_name, field in self.fields.items():
+      dirty = field.is_dirty()
+      if not isinstance(field, RawField) and dirty:
+        if dirty is True:
+          fields.append(field_name)
+        else:
+          for inner_field_name in dirty:
+            fields.append(field_name + '.' + inner_field_name)
+
+    return fields
+
+  def serialize(self, include=[], exclude=[]):
+    output = {}
+    for field_name, field in self.fields.items():
+      if not isinstance(field, RawField) and (include == 'all' or field_name in include) and field_name not in exclude:
+        output[field_name] = field.serialize()
+
+    return output
 
   def serialize_with_id(self, exclude=[]):
     data = self.serialize(exclude=exclude)
@@ -259,6 +274,13 @@ class MongoField:
       setattr(self, key, value)
 
     self.value = self.config['default']
+    self.dirty = False
+
+  def __setattr__(self, name, new_value):
+    if name == "value":
+      self.dirty = True
+
+    super().__setattr__(name, new_value)
 
   def copy(self):
     return self.__class__(**self.config.copy())
@@ -281,6 +303,9 @@ class MongoField:
   @classmethod
   def clean(cls, new_value):
     return new_value
+
+  def is_dirty(self):
+    return self.dirty
 
   def serialize(self):
     return str(self.value)
@@ -402,6 +427,24 @@ class ListField(MongoField):
 
     if errors:
       raise ValueError("Not all elements were {}; bad elements: {}".format(self.field_class, errors))
+
+  def is_dirty(self):
+    if self.dirty is True:
+      return True
+
+    dirty_fields = []
+
+    for index, element in enumerate(self.value):
+      dirty = element.is_dirty()
+
+      if dirty:
+        if dirty is True:
+          dirty_fields.append(str(index))
+        else:
+          for inner_field_name in dirty:
+            dirty_fields.append(str(index) + '.' + inner_field_name)
+
+    return dirty_fields
 
   def serialize(self):
     if isinstance(self.field_class, ModelField):

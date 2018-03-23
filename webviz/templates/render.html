@@ -23,24 +23,8 @@
     <button id='step'>Step</button>
 
     <div id="data" hidden>
-    	<div id="nodes">
-		    {% for node in nodes %}
-		    	<p>{{node.json()}}</p>
-		    {% endfor %}
+    	<p>{{web.json()}}</p>
 		</div>
-
-		<div id="links">
-		    {% for link in links %}
-		    	<p>{{link.json()}}</p>
-		    {% endfor %}
-		</div>
-
-		<div id="graphs">
-		    {% for graph in graphs %}
-		    	<p>{{graph.json()}}</p>
-		    {% endfor %}
-		</div>
-	</div>
 {% endblock %}
 
 {% block scripts %}
