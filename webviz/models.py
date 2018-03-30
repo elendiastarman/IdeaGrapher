@@ -6,6 +6,8 @@ import string
 
 # Create your models here.
 class Account(MongoModel):
+  DEFAULT_EXCLUDE = ['password']
+
   username = StringField(max_length=50)
   password = BytesField()
   email = StringField()
@@ -47,9 +49,6 @@ class Account(MongoModel):
 
     except ObjectNotFound:
       return None
-
-  def json(self, exclude=[]):
-    return super().json(exclude=exclude + ['password'])
 
   def get_session_auth_hash(self):
     return self.session_auth_hash

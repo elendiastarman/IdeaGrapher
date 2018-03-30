@@ -59,6 +59,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
   DATABASE = MONGO_DATABASE
   COLLECTION = None
   STRICT = True
+  DEFAULT_EXCLUDE = []
   _id = None
 
   def __init__(self, _database=None, _collection=None, **kwargs):
@@ -186,21 +187,25 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
     return fields
 
-  def serialize(self, include=[], exclude=[]):
+  def serialize(self, **kwargs):
+    include = kwargs.get('include', [])
+    exclude = kwargs.get('exclude', []) + self.DEFAULT_EXCLUDE
+
     output = {}
     for field_name, field in self.fields.items():
       if not isinstance(field, RawField) and (include == 'all' or field_name in include) and field_name not in exclude:
-        output[field_name] = field.serialize()
+        output[field_name] = field.serialize(**kwargs)
 
     return output
 
-  def serialize_with_id(self, exclude=[]):
-    data = self.serialize(exclude=exclude)
+  def serialize_with_id(self, **kwargs):
+    data = self.serialize(**kwargs)
     data['id'] = self.id
     return data
 
-  def json(self, exclude=[]):
-    return json.dumps(self.serialize_with_id(exclude=exclude))
+  def json(self, **kwargs):
+    kwargs.setdefault('bundle', {})
+    return json.dumps(self.serialize_with_id(**kwargs))
 
   @classmethod
   def deserialize(cls, data):
@@ -307,8 +312,8 @@ class MongoField:
   def is_dirty(self):
     return self.dirty
 
-  def serialize(self):
-    return str(self.value)
+  def serialize(self, **kwargs):
+    return self.value
 
   def deserialize(self, data):
     return data
@@ -321,7 +326,7 @@ class RawField(MongoField):
   def validate(self):
     pass
 
-  def serialize(self):
+  def serialize(self, **kwargs):
     return self.value
 
 
@@ -393,9 +398,6 @@ class BytesField(MongoField):
     kwargs.setdefault('max_length', 0)
     super().__init__(**kwargs)
 
-  def serialize(self):
-    return self.value
-
   def validate(self):
     super().validate()
 
@@ -408,6 +410,9 @@ class BytesField(MongoField):
 
 class ListField(MongoField):
   def __init__(self, field_class, **kwargs):
+    if not issubclass(field_class, MongoField):
+      raise ValueError("Can only have a MongoField subclass in a ListField, not '{}'.".format(field_class))
+
     kwargs.setdefault('max_length', 0)
     kwargs.setdefault('field_class', field_class)
     kwargs.setdefault('default', [])
@@ -446,11 +451,8 @@ class ListField(MongoField):
 
     return dirty_fields
 
-  def serialize(self):
-    if isinstance(self.field_class, ModelField):
-      return [item.id for item in self.value]
-    else:
-      return [str(item) for item in self.value]
+  def serialize(self, **kwargs):
+    return [item.serialize(**kwargs) for item in self.value]
 
   def deserialize(self, data):
     if isinstance(self.field_class, ModelField):
@@ -491,6 +493,16 @@ class ModelField(MongoField):
       kwargs.setdefault('model_class', model_class)
 
     super().__init__(**kwargs)
+
+  def serialize(self, **kwargs):
+    self.save()
+
+    bundle = kwargs.get('bundle', None)
+    if bundle:
+      refs = bundle.setdefault(self.model_class.__name__, {})
+      refs[self.id] = self.value.serialize(**kwargs)
+
+    return self.id
 
 
 # ## index stuff
