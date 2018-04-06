@@ -9,5 +9,6 @@ setup(
         'pymongo',
         'bcrypt',
         'wtforms',
+        'flask-shell-ipython',
     ],
 )

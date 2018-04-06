@@ -151,7 +151,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
       raise ValueError("Data error(s): {}".format(errors))
 
     if not self._id:
-      result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(self.serialize())
+      result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(self.serialize(include='all'))
       self._id = result.inserted_id
       self.get_or_make_ref(self.__class__, self._id, obj=self)
     else:
@@ -171,21 +171,22 @@ class MongoModel(object, metaclass=MongoModelMeta):
     return errors
 
   def changed(self):
-    return self.serialize(include=self.dirty_fields())
-
-  def dirty_fields(self):
-    fields = []
+    dirty_fields = {}
 
     for field_name, field in self.fields.items():
-      dirty = field.is_dirty()
-      if not isinstance(field, RawField) and dirty:
-        if dirty is True:
-          fields.append(field_name)
-        else:
-          for inner_field_name in dirty:
-            fields.append(field_name + '.' + inner_field_name)
+      if not isinstance(field, RawField):
+        dirty = field.is_dirty()
+        if dirty:
+          if dirty is True:
+            dirty_fields[field_name] = field.value
+          elif isinstance(dirty, dict):
+            for inner_field_name, inner_field_value in dirty.items():
+              dirty_fields[field_name + '.' + inner_field_name] = inner_field_value
 
-    return fields
+          else:
+            raise ValueError("Don't know what to do when dirty is {} and has value '{}'.".format(type(dirty), dirty))
+
+    return dirty_fields
 
   def serialize(self, **kwargs):
     include = kwargs.get('include', [])
@@ -193,8 +194,13 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
     output = {}
     for field_name, field in self.fields.items():
-      if not isinstance(field, RawField) and (include == 'all' or field_name in include) and field_name not in exclude:
+      if include == 'all' or not isinstance(field, RawField) and (field_name not in exclude or field_name in include):
         output[field_name] = field.serialize(**kwargs)
+
+    bundle = kwargs.get('bundle', None)
+    if bundle is not None:
+      refs = bundle.setdefault(self.__class__.__name__, {})
+      refs[self.id] = output
 
     return output
 
@@ -205,7 +211,8 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
   def json(self, **kwargs):
     kwargs.setdefault('bundle', {})
-    return json.dumps(self.serialize_with_id(**kwargs))
+    self.serialize_with_id(**kwargs)
+    return json.dumps(kwargs.get('bundle'))
 
   @classmethod
   def deserialize(cls, data):
@@ -316,6 +323,7 @@ class MongoField:
     return self.value
 
   def deserialize(self, data):
+    self.dirty = False
     return data
     # ret = cls(default=cls.clean(data))
     # ret.validate()
@@ -410,13 +418,19 @@ class BytesField(MongoField):
 
 class ListField(MongoField):
   def __init__(self, field_class, **kwargs):
-    if not issubclass(field_class, MongoField):
-      raise ValueError("Can only have a MongoField subclass in a ListField, not '{}'.".format(field_class))
+    if not isinstance(field_class, MongoField):
+      raise ValueError("Can only have a MongoField subclass instance in a ListField, not '{}'.".format(field_class))
 
     kwargs.setdefault('max_length', 0)
     kwargs.setdefault('field_class', field_class)
     kwargs.setdefault('default', [])
     super().__init__(**kwargs)
+
+  def __getitem__(self, index):
+    return self.value[index]
+
+  def __setitem__(self, index, new_value):
+    self.value[index] = new_value
 
   def validate(self):
     super().validate()
@@ -495,14 +509,12 @@ class ModelField(MongoField):
     super().__init__(**kwargs)
 
   def serialize(self, **kwargs):
-    self.save()
+    self.value.save()
+    self.value.serialize(**kwargs)
+    return self.value.id
 
-    bundle = kwargs.get('bundle', None)
-    if bundle:
-      refs = bundle.setdefault(self.model_class.__name__, {})
-      refs[self.id] = self.value.serialize(**kwargs)
-
-    return self.id
+  def deserialize(self, data):
+    return MongoModel.get_or_make_ref(self.model_class, data)
 
 
 # ## index stuff

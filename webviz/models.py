@@ -59,7 +59,7 @@ class Account(MongoModel):
 
 class Vertex(MongoModel):
   node = ModelField(Node)
-  labels = ListField(StringField)
+  labels = ListField(StringField())
   subwebs = ListField(ModelField('Web'))
   data = DictField()
 
@@ -87,4 +87,8 @@ class Web(MongoModel):
 
 
 class Rule(MongoModel):
+  pass
+
+
+class Camera(MongoModel):
   pass
