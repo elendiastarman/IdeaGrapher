@@ -25,9 +25,13 @@
     <div id="data" hidden>
     	<p>{{web.json()}}</p>
 		</div>
+    <p>
+      {{web.json()}}
+    </p>
 {% endblock %}
 
 {% block scripts %}
     {{ super() }}
     <script type="text/javascript" src="{{ url_for('static', filename='render.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='models_and_fields.js') }}"></script>
 {% endblock %}
