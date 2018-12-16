@@ -2,30 +2,10 @@
 
 {% block content %}
     <h2>Not a member yet?</h2>
-    
-    <!-- {# <form method="post" action="{% url 'login' %}">
-        {% csrf_token %}
-        <table>
-            {% for field in form %}
-                <tr>
-                    <td>{{ field.label_tag }}</td>
-                    <td>{{ field }}</td>
-                    {% if field.errors %}
-                        <td class="error">{{ field.errors }}</td>
-                    {% else %}
-                        <td class="help">{{ field.help_text }}</td>
-                    {% endif %}
-                </tr>
-            {% endfor %}
-        </table>
-
-        <input type="submit" value="login" />
-        {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
-    </form> #} -->
 
     {% from "_formhelpers.html" import render_field %}
     <form method="post">
-        {{ crsf_token }}
+        {{ form.csrf_token }}
         <dl>
             {{ render_field(form.username) }}
             {{ render_field(form.email) }}
@@ -34,6 +14,7 @@
         </dl>
         <p><input type="submit" value="Register"/></p>
     </form>
+    {% if form_errors %}<p>No can do! {{form_errors}}</p>{% endif %}
     
     <p><em>Meant to <a href="{{ url_for('login_view') }}">sign in</a>?</em></p>
 {% endblock %}

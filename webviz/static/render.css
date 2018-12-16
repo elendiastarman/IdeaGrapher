@@ -18,6 +18,17 @@
     text-align: center;
 }
 
+#webname {
+    font-size: 24pt;
+    background: transparent;
+    border: none;
+    color: #FFF;
+}
+#webname::placeholder {
+    color: #FFF;
+    font-style: italic;
+}
+
 @media screen and (max-width: 700px) {
     #main > li {
         display: block;

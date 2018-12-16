@@ -6,13 +6,7 @@
 {% endblock %}
 
 {% block content %}
-    <h1>
-      {% if web.name %}
-        {{ web.name }}
-      {% else %}
-        <em>Untitled</em>
-      {% endif %}
-    </h1>
+    <input id="webname" type="text" placeholder="Untitled" value="{{ web.name }}"/><br/>
 
     <svg id="display"></svg>
 
@@ -24,7 +18,7 @@
 
     <div id="data" hidden>
     	<p>{{web.json()}}</p>
-		</div>
+	</div>
     <p>
       {{web.json()}}
     </p>

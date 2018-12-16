@@ -1,11 +1,15 @@
-from flask import request, session, render_template, redirect, abort, url_for
+from flask import request, session, render_template, redirect, abort, url_for, jsonify
 from graphstore.models import Graph
-from bson import ObjectId
 
 from . import app
 from .models import Account, Web
-from .forms import LoginForm
+from .forms import LoginForm, RegisterForm
 from .auth import login, logout, get_user
+
+import json
+import traceback
+
+MODEL_MAP = {'web': Web}
 
 
 # Create your views here.
@@ -42,7 +46,7 @@ def new_web_view(**kwargs):
 def render_view(webid, **kwargs):
   context = {'webid': webid}
 
-  web = Web.find_one({'_id': ObjectId(webid)})
+  web = Web.get_by_id(webid)
   context['web'] = web
 
   return render_template('render.html', **context)
@@ -71,13 +75,50 @@ def favicon(**kwargs):
   abort(404)
 
 
-@app.route('/register')
+@app.route('/register', methods=['GET', 'POST'])
 def register_view(**kwargs):
-  pass
+  context = dict()
+
+  if request.method == 'POST':
+    form = RegisterForm(request.form)
+    print("Form:", form)
+
+    if form.validate():
+      username = form.username.data
+      email = form.email.data
+      form_errors = []
+
+      try:
+        account = Account(username=username, password=form.password.data, email=email)
+        account.save()
+
+      except Exception:
+        form = RegisterForm(initial={'username': username, 'email': email})
+        form_errors.append("Failed to create account.")
+        context['form_errors'] = form_errors
+
+      if not form_errors:
+        user = Account.authenticate(username, form.password.data)
+        print("user:", user)
+
+        if user is not None:
+          login(session, user)
+          return redirect('/')
+
+    else:
+      print("Errors:", form.errors)
+
+  else:
+    form = RegisterForm()
+
+  context['form'] = form
+  return render_template('register.html', **context)
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_view(**kwargs):
+  context = dict()
+
   if request.method == 'POST':
     form = LoginForm(request.form)
     print("Form:", form)
@@ -85,20 +126,19 @@ def login_view(**kwargs):
     if form.validate():
       username = form.username.data
       password = form.password.data
-      print("username: {}, password: {}".format(username, password))
 
       user = Account.authenticate(username, password)
       print("user:", user)
       print("accounts:", [a.json() for a in Account.find({})])
 
-      if user is not None:
-        login(session, user)
-        return redirect('/')
-
-      else:
+      if user is None:
         # TODO: return 'invalid login' error message
         form = LoginForm(initial={'username': username})
         form.errors['password'] = "Invalid password"
+
+      else:
+        login(session, user)
+        return redirect('/')
 
     else:
       print("Errors:", form.errors)
@@ -106,18 +146,43 @@ def login_view(**kwargs):
   else:
     form = LoginForm()
 
-  return render_template('login.html', **{'form': form})
+  context['form'] = form
+  return render_template('login.html', **context)
 
 
-def login_ajax(**kwargs):
-  pass
+def update_model(data):
+  model = MODEL_MAP[data['$model']]
+  instance = model.get_by_id(data['$id'])
+  print(instance.json())
+
+  for item in data['$update']:
+    if item['$action'] == 'overwrite':
+      instance.__setattr__(item['$key'], item['$value'])
+
+  # import ipdb; ipdb.set_trace()
+  instance.save()
+
+
+@app.route('/updatedata', methods=['PUT'])
+def update_data(**kwargs):
+  import pprint
+  data = json.loads(request.form.to_dict().get('data'))
+
+  for datum in data:
+    pprint.pprint(datum)
+
+    try:
+      update_model(datum)
+    except Exception as e:
+      traceback.print_exc()
+      return abort(400, {'error': "Model update failed!"})
+
+  return jsonify({'success': 200})
 
 
 @app.route('/logout')
 def logout_view(**kwargs):
   logout(session)
-
-  # redirect
   return redirect('/')
 
 

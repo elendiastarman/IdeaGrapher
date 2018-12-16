@@ -1,4 +1,3 @@
-from bson import ObjectId
 from .models import Account, ObjectNotFound
 
 SESSION_KEY = '_auth_user_id'

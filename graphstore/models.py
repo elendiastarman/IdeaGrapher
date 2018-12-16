@@ -74,8 +74,12 @@ class MongoModel(object, metaclass=MongoModelMeta):
     if _collection:
       self.COLLECTION = _collection
 
+    deserializing = kwargs.pop('deserializing', False)
     for key, value in kwargs.items():
       self.__setattr__(key, value)
+
+      if deserializing and key in self.__class__.fields.keys():
+        self.fields[key].dirty = False
 
   @classmethod
   def connect_to_database(cls, database, uri, port, username=None, password=None, auth_source="admin", auth_mechanism="SCRAM-SHA-1"):
@@ -241,7 +245,8 @@ class MongoModel(object, metaclass=MongoModelMeta):
     if errors:
       raise ValueError("Errors during deserialization: {}".format(errors))
 
-    obj = cls(**deserialized_data, deserializing=True)
+    deserialized_data.update(dict(deserializing=True))
+    obj = cls(**deserialized_data)
     obj._id = data['_id']
 
     return obj
@@ -431,6 +436,7 @@ class ListField(MongoField):
 
   def __setitem__(self, index, new_value):
     self.value[index] = new_value
+    self.dirty = True
 
   def validate(self):
     super().validate()
