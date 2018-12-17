@@ -141,6 +141,7 @@ function syncDataAndGraphics() {
       'y': Math.random() * 400 - 200,
       'xv': 0,
       'yv': 0,
+      'color': 'gray',
     };
   });
 
@@ -169,8 +170,7 @@ function drawSync() {
     .attr('class', 'node')
     .attr('id', function(d){ return d; });
   vEnterGroup.append('circle')
-    .attr('fill', 'gray')
-    .attr('stroke', 'black')
+    .attr('stroke', 'black');
   vEnterGroup.append('text')
     .text(function(d){ return nodes[d]['shortname']})
     .attr('x', function(d){ return vertices[d]['x']; })
@@ -201,7 +201,8 @@ function draw() {
     .attr('cx', function(d){ return vertices[d]['x']; })
     .attr('cy', function(d){ return vertices[d]['y']; })
     .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'] || 10)) * 2 / fS; })
-    .attr('stroke-width', (2 / fS) + 'px');
+    .attr('stroke-width', (2 / fS) + 'px')
+    .attr('fill', function(d){ return vertices[d]['color']; });
   vData.selectAll('text')
     .attr('x', function(d){ return vertices[d]['x']; })
     .attr('y', function(d){ return vertices[d]['y']; })
@@ -233,6 +234,7 @@ function stop() {
 
 function step() {
   let changed = false;
+  updateMouseEventData();
   changed = updateMouseState() || changed;
   changed = respondToInput() || changed;
 
@@ -390,44 +392,71 @@ function dis(x1, y1, x2, y2) {
 
 
 var now = Date.now();
-var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, middle button, right button
+var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, middle button, right button, scroll wheel
 var mouseEventTimes = [now, now, now, now, now];
+var mouseEventsTemp = [[[null, null]], [], [], [], []]; // helps avoid race conditions
+var mouseEventTimesTemp = [now, now, now, now, now];
 var mouseState = {"state": "hover", "scrollTime": 0, "changed": false};
 
 function handleMouseDown() {
   d3.event.preventDefault();
   mouseState['changed'] = true;
 
-  // console.log(d3.event);
-  mouseEvents[d3.event.which].unshift([d3.event, null]);
-  mouseEvents[0].unshift([d3.event, null]);
-  mouseEventTimes[d3.event.which] = Date.now();
+  mouseEventsTemp[d3.event.which].unshift([d3.event, null]);
+  mouseEventsTemp[0].unshift([d3.event, null]);
+  mouseEventTimesTemp[d3.event.which] = Date.now();
 }
 
 function handleMouseUp() {
   d3.event.preventDefault();
   mouseState['changed'] = true;
 
-  mouseEvents[d3.event.which][0][1] = d3.event;
-  mouseEvents[0].unshift([d3.event, null]);
-  mouseEventTimes[d3.event.which] = Date.now();
+  mouseEventsTemp[d3.event.which][0][1] = d3.event;
+  mouseEventsTemp[0].unshift([d3.event, null]);
+  mouseEventTimesTemp[d3.event.which] = Date.now();
 }
 
 function handleMouseMove() {
   d3.event.preventDefault();
   mouseState['changed'] = true;
 
-  mouseEvents[0][0][1] = d3.event;
-  mouseEventTimes[0] = Date.now();
+  mouseEventsTemp[0][0][1] = d3.event;
+  mouseEventTimesTemp[0] = Date.now();
 }
 
 function handleMouseScroll() {
   d3.event.preventDefault();
   mouseState['changed'] = true;
 
-  mouseEvents[4].unshift(d3.event);
-  mouseEventTimes[4] = Date.now();
-  // console.log(d3.event);
+  mouseEventsTemp[4].unshift(d3.event);
+  mouseEventTimesTemp[4] = Date.now();
+}
+
+function updateMouseEventData() {
+  if (mouseState['changed'] == false) {
+    return;
+  }
+
+  for (let i = 0; i < 5; i++) {
+    mouseEventTimes[i] = mouseEventTimesTemp[i];
+
+    let diff = mouseEventsTemp[i].length - mouseEvents[i].length;
+    if (diff == 0) {
+      continue;
+    }
+
+    // orig 0 1 2
+    // temp 0 1 2 3 4
+    // orig[0] = temp[2], orig.unshift(temp[1]), orig.unshift(temp[0])
+
+    if (mouseEvents[i].length > 0) {
+      mouseEvents[i][0] = mouseEventsTemp[diff];
+    }
+
+    for (let j = diff - 1; j > -1; j--) {
+      mouseEvents[i].unshift(mouseEventsTemp[i][j]);
+    }
+  }
 }
 
 var moveDis = 10;
@@ -468,7 +497,7 @@ function updateMouseState() {
     // move -> drag
     else if (mouseEvents[0][0][1] != null) {
       let a = mouseEvents[0][0][0],
-        b = mouseEvents[0][0][1];
+          b = mouseEvents[0][0][1];
 
       if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
         mouseState["state"] = "drag";
@@ -507,7 +536,7 @@ function updateMouseState() {
     // move -> click-drag
     else if (mouseEvents[0][0][1] != null) {
       let a = mouseEvents[0][0][0],
-        b = mouseEvents[0][0][1];
+          b = mouseEvents[0][0][1];
 
       if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
         mouseState["state"] = "click-drag";
@@ -527,7 +556,7 @@ function updateMouseState() {
     // move -> hold-drag
     if(mouseEvents[0][0][1] != null) {
       let a = mouseEvents[0][0][0],
-        b = mouseEvents[0][0][1];
+          b = mouseEvents[0][0][1];
 
       if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
         mouseState["state"] = "hold-drag";
@@ -621,7 +650,7 @@ function executeChangeTriggers(oldState, newState) {
 }
 
 function pan() {
-  if(mouseState["buttons"] == 4) {
+  if(mouseState["buttons"] == 1) {
       fX = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldX;
       fY = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldY;
     }
@@ -632,62 +661,97 @@ function panEnd() {
   fieldY = fY;
 }
 
+function identifyTargets() {
+}
+
+function createNode() {
+  let newNodeId = "<TEMP>" + Math.random().toString();
+  let newNode = {'subgraphs': [], 'data': {'size': 10}};
+  nodeIds.push(newNodeId);
+  nodes[newNodeId] = newNode;
+
+  syncDataAndGraphics();
+  drawSync();
+
+  $.ajax('/updatedata', {
+    method: 'PUT',
+    data: {'data': JSON.stringify([
+      {
+        '$model': 'node',
+        '$id': newNodeId,
+        '$create': {
+          '$action': 'overwrite',
+          '$type': 'dict',
+          '$key': 'data',
+          '$value': newNode['data'],
+        },
+      },
+      {
+        '$model': 'graph',
+        '$id': graphIds[0],
+        '$update': [{
+          '$action': 'append',
+          '$type': 'model',
+          '$key': 'nodes',
+          '$value': {'$model': 'node', '$id': newNodeId},
+        }],
+      },
+    ])},
+    success: function(responseData) {
+      console.log('SUCCESS ', responseData);
+      let parsed = JSON.parse(responseData['return_data'][0]);
+      let realId = null;
+      for (let key in parsed['Node']) {
+        realId = realId || key;
+      }
+      nodes[realId] = newNode;
+      delete nodes[newNodeId];
+      nodeIds.pop()
+      nodeIds.push(realId)
+
+      syncDataAndGraphics();
+      drawSync();
+    },
+    error: function(responseData) {
+      console.log('ERROR ', responseData);
+    },
+  });
+}
+
+function normalizeMousePosition(event) {
+  let boundingRect = document.getElementById('display').getBoundingClientRect();
+  let x = (event.x - boundingRect.x - width / 2) / fS - fieldX;
+  let y = (event.y - boundingRect.y - height / 2) / fS - fieldY;
+  return [x, y];
+}
+
+function highlightClosestNode() {
+  let [x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
+  let max_dist = 20 / fS;
+
+  for (let i in nodeIds) {
+    let id = nodeIds[i];
+    let vx = vertices[id]['x'];
+    let vy = vertices[id]['y'];
+
+    let dist = Math.pow(vx - x, 2) + Math.pow(vy - y, 2);
+
+    if (dist < Math.pow(max_dist, 2)) {
+      vertices[id]['color'] = 'white';
+    } else {
+      vertices[id]['color'] = 'gray';
+    }
+  }
+  draw();
+}
+
 function multiClick() {
-  // x = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldX;
-  // y = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldY;
+  let targets = identifyTargets();
 
-  if (mouseState['clicks'] == 2) {
-    let newNodeId = "<TEMP>" + Math.random().toString();
-    let newNode = {'subgraphs': [], 'data': {'size': 10}};
-    nodeIds.push(newNodeId);
-    nodes[newNodeId] = newNode;
-
-    syncDataAndGraphics();
-    drawSync();
-
-    $.ajax('/updatedata', {
-      method: 'PUT',
-      data: {'data': JSON.stringify([
-        {
-          '$model': 'node',
-          '$id': newNodeId,
-          '$create': {
-            '$action': 'overwrite',
-            '$type': 'dict',
-            '$key': 'data',
-            '$value': newNode['data'],
-          },
-        },
-        {
-          '$model': 'graph',
-          '$id': graphIds[0],
-          '$update': [{
-            '$action': 'append',
-            '$type': 'model',
-            '$key': 'nodes',
-            '$value': {'$model': 'node', '$id': newNodeId},
-          }],
-        },
-      ])},
-      success: function(responseData) {
-        console.log('SUCCESS ', responseData);
-        let parsed = JSON.parse(responseData['return_data'][0]);
-        let realId = null;
-        for (let key in parsed['Node']) {
-          realId = realId || key;
-        }
-        nodes[realId] = newNode;
-        delete nodes[newNodeId];
-        nodeIds.pop()
-        nodeIds.push(realId)
-
-        syncDataAndGraphics();
-        drawSync();
-      },
-      error: function(responseData) {
-        console.log('ERROR ', responseData);
-      },
-    });
+  if (mouseState['clicks'] == 1) {
+    highlightClosestNode();
+  } else if (mouseState['clicks'] == 2) {
+    createNode();
   }
 }
 
