@@ -1,5 +1,5 @@
 from flask import request, session, render_template, redirect, abort, url_for, jsonify
-from graphstore.models import Graph
+from graphstore.models import Graph, Link, Node
 
 from . import app
 from .models import Account, Web
@@ -9,7 +9,7 @@ from .auth import login, logout, get_user
 import json
 import traceback
 
-MODEL_MAP = {'web': Web}
+MODEL_MAP = {'web': Web, 'graph': Graph, 'link': Link, 'node': Node}
 
 
 # Create your views here.
@@ -150,7 +150,16 @@ def login_view(**kwargs):
   return render_template('login.html', **context)
 
 
-def update_model(data):
+def create_model(data, temp_id_map):
+  model = MODEL_MAP[data['$model']]
+  instance = model(**data['$create'])
+  instance.save()
+  temp_id_map[data['$id']] = instance
+  print(instance.json())
+  return instance.json()
+
+
+def update_model(data, temp_id_map):
   model = MODEL_MAP[data['$model']]
   instance = model.get_by_id(data['$id'])
   print(instance.json())
@@ -159,25 +168,66 @@ def update_model(data):
     if item['$action'] == 'overwrite':
       instance.__setattr__(item['$key'], item['$value'])
 
+    elif item['$action'] == 'append':
+      element = None
+
+      if item['$type'] == 'model':
+        model_id = item['$value']['$id']
+
+        if model_id in temp_id_map:
+          element = temp_id_map[model_id]
+        else:
+          inner_model = MODEL_MAP[item['$value']['$model']]
+          element = inner_model.get_by_id(item['$value']['$id'])
+
+      else:
+        element = item['$value']
+
+      # import ipdb; ipdb.set_trace()
+      instance.__getattribute__(item['$key']).append(element)
+
   # import ipdb; ipdb.set_trace()
   instance.save()
+
+
+def delete_model(data, temp_id_map):
+  model = MODEL_MAP[data['$model']]
+  instance = model.get_by_id(data['$id'])
+  print(instance.json())
+
+  # for item in data['$update']:
+  #   if item['$action'] == 'overwrite':
+  #     instance.__setattr__(item['$key'], item['$value'])
+
+  # import ipdb; ipdb.set_trace()
+  # instance.save()
 
 
 @app.route('/updatedata', methods=['PUT'])
 def update_data(**kwargs):
   import pprint
   data = json.loads(request.form.to_dict().get('data'))
+  return_data = []
+  temp_id_map = {}
 
   for datum in data:
     pprint.pprint(datum)
 
     try:
-      update_model(datum)
+      if '$create' in datum:
+        ret = create_model(datum, temp_id_map)
+      elif '$update' in datum:
+        ret = update_model(datum, temp_id_map)
+      elif '$delete' in datum:
+        ret = delete_model(datum, temp_id_map)
+
+      return_data.append(ret)
+
     except Exception as e:
       traceback.print_exc()
-      return abort(400, {'error': "Model update failed!"})
+      return_data.append({'error': "Model create/update/delete failed!"})
 
-  return jsonify({'success': 200})
+  return jsonify({'success': 200, 'return_data': return_data})
 
 
 @app.route('/logout')

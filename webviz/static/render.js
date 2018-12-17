@@ -200,7 +200,7 @@ function draw() {
   vData.selectAll('circle')
     .attr('cx', function(d){ return vertices[d]['x']; })
     .attr('cy', function(d){ return vertices[d]['y']; })
-    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['size'])) * 2 / fS; })
+    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'] || 10)) * 2 / fS; })
     .attr('stroke-width', (2 / fS) + 'px');
   vData.selectAll('text')
     .attr('x', function(d){ return vertices[d]['x']; })
@@ -273,7 +273,7 @@ function saveWebname() {
       error: function(responseData) {
         console.log('ERROR ', responseData);
       },
-    })
+    });
   }
 }
 
@@ -487,7 +487,6 @@ function updateMouseState() {
     // wait -> hover
     else if (now - mouseState["time"] > clickWaitTime) {
       mouseState["state"] = "hover";
-      mouseState["clicks"] = 0;
     }
   }
 
@@ -633,11 +632,71 @@ function panEnd() {
   fieldY = fY;
 }
 
+function multiClick() {
+  // x = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldX;
+  // y = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldY;
+
+  if (mouseState['clicks'] == 2) {
+    let newNodeId = "<TEMP>" + Math.random().toString();
+    let newNode = {'subgraphs': [], 'data': {'size': 10}};
+    nodeIds.push(newNodeId);
+    nodes[newNodeId] = newNode;
+
+    syncDataAndGraphics();
+    drawSync();
+
+    $.ajax('/updatedata', {
+      method: 'PUT',
+      data: {'data': JSON.stringify([
+        {
+          '$model': 'node',
+          '$id': newNodeId,
+          '$create': {
+            '$action': 'overwrite',
+            '$type': 'dict',
+            '$key': 'data',
+            '$value': newNode['data'],
+          },
+        },
+        {
+          '$model': 'graph',
+          '$id': graphIds[0],
+          '$update': [{
+            '$action': 'append',
+            '$type': 'model',
+            '$key': 'nodes',
+            '$value': {'$model': 'node', '$id': newNodeId},
+          }],
+        },
+      ])},
+      success: function(responseData) {
+        console.log('SUCCESS ', responseData);
+        let parsed = JSON.parse(responseData['return_data'][0]);
+        let realId = null;
+        for (let key in parsed['Node']) {
+          realId = realId || key;
+        }
+        nodes[realId] = newNode;
+        delete nodes[newNodeId];
+        nodeIds.pop()
+        nodeIds.push(realId)
+
+        syncDataAndGraphics();
+        drawSync();
+      },
+      error: function(responseData) {
+        console.log('ERROR ', responseData);
+      },
+    });
+  }
+}
+
 continuousTriggers = [
   [/drag/, [pan]],
 ]
 
 changeTriggers = [
   [/drag->hover/, [panEnd]],
+  [/click->hover/, [multiClick]],
 ]
 

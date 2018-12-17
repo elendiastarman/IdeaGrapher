@@ -192,6 +192,8 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
     return dirty_fields
 
+  is_dirty = changed
+
   def serialize(self, **kwargs):
     include = kwargs.get('include', [])
     exclude = kwargs.get('exclude', []) + self.DEFAULT_EXCLUDE
