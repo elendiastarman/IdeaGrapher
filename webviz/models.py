@@ -1,4 +1,4 @@
-from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BytesField, ListField, EnumField, DictField
+from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BinaryField, ListField, EnumField, DictField
 import bcrypt
 import random
 import string
@@ -9,7 +9,7 @@ class Account(MongoModel):
   DEFAULT_EXCLUDE = ['password']
 
   username = StringField(max_length=50)
-  password = BytesField()
+  password = BinaryField()
   email = StringField()
   webs = ListField(ModelField('Web'))
   session_auth_hash = StringField(default='')
@@ -59,7 +59,8 @@ class Account(MongoModel):
 
 class Vertex(MongoModel):
   node = ModelField(Node)
-  labels = ListField(StringField())
+  screen = DictField()
+  labels = ListField(ModelField('Prop'))
   subwebs = ListField(ModelField('Web'))
   data = DictField()
 
@@ -87,8 +88,17 @@ class Web(MongoModel):
 
 
 class Rule(MongoModel):
-  pass
+  type = EnumField(['constraint', 'transformation'])
+  data = DictField()
 
 
 class Camera(MongoModel):
-  pass
+  screen = DictField()
+  data = DictField()
+
+
+class Prop(MongoModel):
+  type = EnumField(['text', 'image', '3d-model'], default='text')
+  value = StringField()
+  value_binary = BinaryField()
+  data = DictField()

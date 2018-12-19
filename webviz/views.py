@@ -2,14 +2,18 @@ from flask import request, session, render_template, redirect, abort, url_for, j
 from graphstore.models import Graph, Link, Node
 
 from . import app
-from .models import Account, Web
+from .models import Account, Web, Edge, Vertex, Rule, Prop, Camera
 from .forms import LoginForm, RegisterForm
 from .auth import login, logout, get_user
 
 import json
 import traceback
 
-MODEL_MAP = {'web': Web, 'graph': Graph, 'link': Link, 'node': Node}
+MODEL_MAP = {
+  'graph': Graph, 'link': Link, 'node': Node,
+  'web': Web, 'edge': Edge, 'vertex': Vertex,
+  'rule': Rule, 'prop': Prop, 'camera': Camera,
+}
 
 
 # Create your views here.
@@ -48,6 +52,8 @@ def render_view(webid, **kwargs):
 
   web = Web.get_by_id(webid)
   context['web'] = web
+  context['pretty_json'] = json.dumps(json.loads(web.json()), indent=2)
+  print(context['pretty_json'])
 
   return render_template('render.html', **context)
 
@@ -150,9 +156,38 @@ def login_view(**kwargs):
   return render_template('login.html', **context)
 
 
+def resolve_typed_value(item, temp_id_map):
+  element = None
+
+  if item['$type'] == 'model':
+    model_id = item['$value']['$id']
+
+    if model_id in temp_id_map:
+      element = temp_id_map[model_id]
+    else:
+      inner_model = MODEL_MAP[item['$value']['$model']]
+      element = inner_model.get_by_id(item['$value']['$id'])
+
+  else:
+    element = item['$value']
+
+  return element
+
+
 def create_model(data, temp_id_map):
   model = MODEL_MAP[data['$model']]
-  instance = model(**data['$create'])
+  create_data = dict()
+
+  for item in data['$create']:
+    element = resolve_typed_value(item, temp_id_map)
+
+    if item['$action'] == 'overwrite':
+      create_data[item['$key']] = element
+
+    elif item['$action'] == 'append':
+      create_data[item['$key']].append(element)
+
+  instance = model(**create_data)
   instance.save()
   temp_id_map[data['$id']] = instance
   print(instance.json())
@@ -162,31 +197,16 @@ def create_model(data, temp_id_map):
 def update_model(data, temp_id_map):
   model = MODEL_MAP[data['$model']]
   instance = model.get_by_id(data['$id'])
-  print(instance.json())
 
   for item in data['$update']:
+    element = resolve_typed_value(item, temp_id_map)
+
     if item['$action'] == 'overwrite':
-      instance.__setattr__(item['$key'], item['$value'])
+      instance.__setattr__(item['$key'], element)
 
     elif item['$action'] == 'append':
-      element = None
-
-      if item['$type'] == 'model':
-        model_id = item['$value']['$id']
-
-        if model_id in temp_id_map:
-          element = temp_id_map[model_id]
-        else:
-          inner_model = MODEL_MAP[item['$value']['$model']]
-          element = inner_model.get_by_id(item['$value']['$id'])
-
-      else:
-        element = item['$value']
-
-      # import ipdb; ipdb.set_trace()
       instance.__getattribute__(item['$key']).append(element)
 
-  # import ipdb; ipdb.set_trace()
   instance.save()
 
 
@@ -210,6 +230,7 @@ def update_data(**kwargs):
   return_data = []
   temp_id_map = {}
 
+  print()
   for datum in data:
     pprint.pprint(datum)
 
@@ -227,6 +248,7 @@ def update_data(**kwargs):
       traceback.print_exc()
       return_data.append({'error': "Model create/update/delete failed!"})
 
+  print()
   return jsonify({'success': 200, 'return_data': return_data})
 
 

@@ -186,6 +186,9 @@ class MongoModel(object, metaclass=MongoModelMeta):
           elif isinstance(dirty, dict):
             for inner_field_name, inner_field_value in dirty.items():
               dirty_fields[field_name + '.' + inner_field_name] = inner_field_value
+          elif isinstance(dirty, list):
+            for inner_field_path in dirty:
+              dirty_fields[field_name + '.' + inner_field_path] = inner_field_value
 
           else:
             raise ValueError("Don't know what to do when dirty is {} and has value '{}'.".format(type(dirty), dirty))
@@ -408,7 +411,7 @@ class StringField(MongoField):
       raise ValueError("Maximum length is {}; actual length is {}.".format(self.max_length, len(self.value)))
 
 
-class BytesField(MongoField):
+class BinaryField(MongoField):
   def __init__(self, **kwargs):
     kwargs.setdefault('max_length', 0)
     super().__init__(**kwargs)
@@ -440,6 +443,14 @@ class ListField(MongoField):
     self.value[index] = new_value
     self.dirty = True
 
+  def __add__(self, *args, **kwargs):
+    self.dirty = True
+    super().__add__(*args, **kwargs)
+
+  def __delitem__(self, *args, **kwargs):
+    self.dirty = True
+    super().__delitem__(*args, **kwargs)
+
   def validate(self):
     super().validate()
 
@@ -457,19 +468,22 @@ class ListField(MongoField):
 
   def is_dirty(self):
     if self.dirty is True:
-      return True
+      if isinstance(self.field_class, ModelField):
+        return dict([(index, element.id) for index, element in enumerate(self.value)])
+      else:
+        return True
 
-    dirty_fields = []
+    dirty_fields = {}
+    # import ipdb; ipdb.set_trace()
 
     for index, element in enumerate(self.value):
       dirty = element.is_dirty()
 
       if dirty:
         if dirty is True:
-          dirty_fields.append(str(index))
-        else:
-          for inner_field_name in dirty:
-            dirty_fields.append(str(index) + '.' + inner_field_name)
+          dirty_fields[str(index)] = element.value
+        elif isinstance(self.field_class, ModelField):
+          dirty_fields[str(index)] = element.id
 
     return dirty_fields
 

@@ -18,6 +18,10 @@ var nodes = {}
     linkIds = [],
     graphs = {},
     graphIds = [],
+    vertices = {}
+    vertexIds = [],
+    edges = {},
+    edgeIds = [],
     webs = {},
     webIds = [],
     vertices = {},
@@ -30,7 +34,7 @@ var startTime, loopTimer;
 function init() {
   startTime = Date.now();
 
-  load_data();
+  loadData();
 
   svg.attr('width', width).attr('height', height).style('border', '1px solid black');
   svg.append('rect')
@@ -42,8 +46,6 @@ function init() {
   field = svg.append('g')
     .attr('id', 'field')
     .attr('transform', 'translate(' + (fieldX) + ', ' + (fieldY) + ')');
-
-  syncDataAndGraphics();
 
   drawSync();
 
@@ -63,127 +65,176 @@ function init() {
   loopTimer = setInterval(step, delay);
 }
 
-function pairKey(node1id, node2id) {
-  if(node1id < node2id) {
-    return node1id + '_' + node2id;
+function pairKey(vertex1id, vertex2id) {
+  if(vertex1id < vertex2id) {
+    return vertex1id + '_' + vertex2id;
   } else {
-    return node2id + '_' + node1id;
+    return vertex2id + '_' + vertex1id;
   }
 }
 
-function load_data() {
-  let data = JSON.parse($('#data > p').html());
-
+function initNodes(data) {
   nodesData = data['Node'] || [];
+  let newNodeIds = [];
   for (let key in nodesData) {
     nodes[key] = nodesData[key];
     nodeIds.push(key);
+    newNodeIds.push(key);
   }
 
-  nodeIds.forEach(function(n1id) {
-    nodeIds.forEach(function(n2id) {
-      if(n1id != n2id) {
-        pairs[pairKey(n1id, n2id)] = {node1: nodes[n1id], node2: nodes[n2id], linked: false};
+  return newNodeIds;
+}
+
+function initVertices(data) {
+  verticesData = data['Vertex'] || [];
+  let newVertexIds = [];
+  for (let key in verticesData) {
+    vertices[key] = verticesData[key];
+    vertexIds.push(key);
+    newVertexIds.push(key);
+
+    vertices[key]['node'] = nodes[verticesData[key]['node']];
+  }
+
+  vertexIds.forEach(function(v1id) {
+    vertexIds.forEach(function(v2id) {
+      if(v1id != v2id) {
+        pairs[pairKey(v1id, v2id)] = {vertex1: vertices[v1id], vertex2: vertices[v2id], edge: null};
       }
     });
   });
 
+  return newVertexIds;
+}
+
+function initLinks(data) {
   linksData = data['Link'] || [];
+  let newLinkIds = [];
   for (let key in linksData) {
     links[key] = linksData[key];
     linkIds.push(key);
-    let sinksSet = false;
+    newLinkIds.push(key);
 
-    item['sources'].forEach(function(e1, i1){
-      let node = nodes[e1];
-      if (node){
-        item['sources'][i1] = node;
-      }
+    let needSinksSet = true;
 
-      item['sinks'].forEach(function(e2, i2){
-        if(!sinksSet) {
-          let node = nodes[e2];
-          if (node){
-            item['sinks'][i2] = node;
-          }
+    links[key]['sources'].forEach(function(id1, index1){
+      links[key]['sources'][index1] = nodes[id1];
+
+      links[key]['sinks'].forEach(function(id2, index2){
+        if(needSinksSet) {
+          links[key]['sinks'][index2] = nodes[id2];
         }
-
-        pairs[pairKey(e1, e2)]['linked'] = true;
-        pairs[pairKey(e1, e2)]['link'] = item;
       });
 
-      sinksSet = true;
+      needSinksSet = false;
     });
   }
 
+  return newLinkIds;
+}
+
+function initEdges(data) {
+  edgesData = data['Edge'] || [];
+  let newEdgeIds = [];
+  for (let key in edgesData) {
+    edges[key] = edgesData[key];
+    edgeIds.push(key);
+    newEdgeIds.push(key);
+
+    let needEndsSet = true;
+
+    edges[key]['start_vertices'].forEach(function(id1, index1){
+      edges[key]['start_vertices'][index1] = vertices[id1];
+
+      edges[key]['end_vertices'].forEach(function(id2, index2){
+        if(needEndsSet) {
+          edges[key]['end_vertices'][index2] = vertices[id2];
+        }
+
+        pairs[pairKey(id1, id2)]['edge'] = edges[key];
+      });
+
+      needEndsSet = false;
+    });
+
+    edges[key]['link'] = links[edgesData[key]['link']];
+  }
+
+  return newEdgeIds;
+}
+
+function initGraphs(data) {
   graphsData = data['Graph'] || [];
+  let newGraphIds = [];
   for (let key in graphsData) {
     graphs[key] = graphsData[key];
     graphIds.push(key);
+    newGraphIds.push(key);
+
+    for (let index in graphsData[key]['nodes']) {
+      graphs[key]['nodes'][index] = nodes[graphsData[key]['nodes'][index]];
+    }
+
+    for (let index in graphsData[key]['links']) {
+      graphs[key]['links'][index] = links[graphsData[key]['links'][index]];
+    }
   }
 
+  return newGraphIds;
+}
+
+function initWebs(data) {
   websData = data['Web'] || [];
+  let newWebIds = [];
   for (let key in websData) {
     webs[key] = websData[key];
     webIds.push(key);
+    newWebIds.push(key);
 
-    if (webs[key]['graph']) {
-      webs[key]['graph'] = graphs[webs[key]['graph']];
+    webs[key]['graph'] = graphs[webs[key]['graph']];
+
+    for (let index in websData[key]['vertices']) {
+      webs[key]['vertices'][index] = vertices[websData[key]['vertices'][index]];
+    }
+
+    for (let index in websData[key]['edges']) {
+      webs[key]['edges'][index] = edges[websData[key]['edges'][index]];
     }
   }
+
+  return newWebIds;
 }
 
-function syncDataAndGraphics() {
-  nodeIds.forEach(function(id) {
-    vertices[id] = {
-      'node': nodes[id],
-      'x': Math.random() * 400 - 200,
-      'y': Math.random() * 400 - 200,
-      'xv': 0,
-      'yv': 0,
-      'color': 'gray',
-    };
-  });
-
-  linkIds.forEach(function(id) {
-    edges[id] = {
-      'link': links[id],
-      'start': vertices[links[id]['sources'][0]['id']],
-      'end': vertices[links[id]['sinks'][0]['id']],
-    };
-  });
+function loadData() {
+  let data = JSON.parse($('#data > p').html());
+  initNodes(data);
+  initVertices(data);
+  initLinks(data);
+  initEdges(data);
+  initGraphs(data);
+  initWebs(data);
 }
 
 function drawSync() {
-  let eData = field.selectAll('.link').data(linkIds);
-  let eGroup = eData.enter().append('g')
-    .attr('class', 'link')
-    .attr('id', function(d){ return d; });
-  eGroup.append('line')
-    .attr('stroke', 'black')
-    .attr('stroke-wdith', '2px');
-
-  eData.exit().remove();
-
-  let vData = field.selectAll('.node').data(nodeIds);
+  let vData = field.selectAll('.vertex').data(vertexIds, function(d){ return d; });
   let vEnterGroup = vData.enter().append('g')
-    .attr('class', 'node')
+    .attr('class', 'vertex')
     .attr('id', function(d){ return d; });
   vEnterGroup.append('circle')
     .attr('stroke', 'black');
-  vEnterGroup.append('text')
-    .text(function(d){ return nodes[d]['shortname']})
-    .attr('x', function(d){ return vertices[d]['x']; })
-    .attr('y', function(d){ return vertices[d]['y']; })
+  vEnterGroup.append('text')  // text: white outline
+    .text(function(d){ return vertices[d]['data']['shortname']})
+    .attr('x', function(d){ return vertices[d]['screen']['x']; })
+    .attr('y', function(d){ return vertices[d]['screen']['y']; })
     .attr('class', 'outer')
     .attr('text-anchor', 'middle')
     .attr('alignment-baseline', 'central')
     .style('fill', 'white')
     .style('stroke', 'black');
-  vEnterGroup.append('text')
-    .text(function(d){ return nodes[d]['shortname']})
-    .attr('x', function(d){ return vertices[d]['x']; })
-    .attr('y', function(d){ return vertices[d]['y']; })
+  vEnterGroup.append('text')  // text: black core
+    .text(function(d){ return vertices[d]['data']['shortname']})
+    .attr('x', function(d){ return vertices[d]['screen']['x']; })
+    .attr('y', function(d){ return vertices[d]['screen']['y']; })
     .attr('class', 'inner')
     .attr('text-anchor', 'middle')
     .attr('alignment-baseline', 'central')
@@ -192,32 +243,42 @@ function drawSync() {
 
   vData.exit().remove();
 
+  let eData = field.selectAll('.edge').data(edgeIds);
+  let eGroup = eData.enter().append('g')
+    .attr('class', 'edge')
+    .attr('id', function(d){ return d; });
+  eGroup.append('line')
+    .attr('stroke', 'black')
+    .attr('stroke-wdith', '2px');
+
+  eData.exit().remove();
+
   draw();
 }
 
 function draw() {
-  let vData = field.selectAll('.node');
+  let vData = field.selectAll('.vertex');
   vData.selectAll('circle')
-    .attr('cx', function(d){ return vertices[d]['x']; })
-    .attr('cy', function(d){ return vertices[d]['y']; })
-    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'] || 10)) * 2 / fS; })
+    .attr('cx', function(d){ return vertices[d]['screen']['x']; })
+    .attr('cy', function(d){ return vertices[d]['screen']['y']; })
+    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'])) * 2 / fS; })
     .attr('stroke-width', (2 / fS) + 'px')
-    .attr('fill', function(d){ return vertices[d]['color']; });
+    .attr('fill', function(d){ return vertices[d]['screen']['color'] || 'gray'; });
   vData.selectAll('text')
-    .attr('x', function(d){ return vertices[d]['x']; })
-    .attr('y', function(d){ return vertices[d]['y']; })
+    .attr('x', function(d){ return vertices[d]['screen']['x']; })
+    .attr('y', function(d){ return vertices[d]['screen']['y']; })
     .attr('font-size', 16 / fS );
   vData.selectAll('text.outer')
     .style('stroke-width', 5 / fS);
   vData.selectAll('text.inner')
     .style('stroke-width', 1 / fS);
 
-  let eData = field.selectAll('.link');
+  let eData = field.selectAll('.edge').data(edgeIds);
   eData.selectAll('line')
-    .attr('x1', function(d){ return edges[d]['start']['x']; })
-    .attr('y1', function(d){ return edges[d]['start']['y']; })
-    .attr('x2', function(d){ return edges[d]['end']['x']; })
-    .attr('y2', function(d){ return edges[d]['end']['y']; })
+    .attr('x1', function(d){ return edges[d]['start_vertices'][0]['screen']['x']; })
+    .attr('y1', function(d){ return edges[d]['start_vertices'][0]['screen']['y']; })
+    .attr('x2', function(d){ return edges[d]['end_vertices'][0]['screen']['x']; })
+    .attr('y2', function(d){ return edges[d]['end_vertices'][0]['screen']['y']; })
     .attr('stroke-width', function(d){ return (2 / fS) + 'px'; });
 
   field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
@@ -287,34 +348,34 @@ var initDrag = 1;
 function stepPhysics() {
   let logger = [false, false];
 
-  for(nid in nodes) {
-    cumulativeAccel[nid] = origingravity(nid);
+  for (let vid in vertices) {
+    cumulativeAccel[vid] = origingravity(vid);
   }
 
-  for(pairId in pairs) {
+  for (let pairId in pairs) {
     let pair = pairs[pairId];
-    let nids = pairId.split('_');
+    let vids = pairId.split('_');
     let offset;
 
-    if(pair['linked']) {
-      offset = displace(nids[0], nids[1], pair['link']);
+    if(pair['edge']) {
+      offset = displace(vids[0], vids[1], pair['edge']);
     } else {
-      offset = antigravity(nids[0], nids[1]);
+      offset = antigravity(vids[0], vids[1]);
     }
 
-    cumulativeAccel[nids[0]][0] += offset[0];
-    cumulativeAccel[nids[0]][1] += offset[1];
-    cumulativeAccel[nids[1]][0] += offset[2];
-    cumulativeAccel[nids[1]][1] += offset[3];
+    cumulativeAccel[vids[0]][0] += offset[0];
+    cumulativeAccel[vids[0]][1] += offset[1];
+    cumulativeAccel[vids[1]][0] += offset[2];
+    cumulativeAccel[vids[1]][1] += offset[3];
   }
 
   drag = initDrag / Math.pow((Date.now() - startTime) / 500000 + 1, 1./4);
-  for(nid in nodes) {
-    vertices[nid]['xv'] = drag * (vertices[nid]['xv'] + stepSize * cumulativeAccel[nid][0]);
-    vertices[nid]['yv'] = drag * (vertices[nid]['yv'] + stepSize * cumulativeAccel[nid][1]);
+  for (let vid in vertices) {
+    vertices[vid]['screen']['xv'] = drag * (vertices[vid]['screen']['xv'] + stepSize * cumulativeAccel[vid][0]);
+    vertices[vid]['screen']['yv'] = drag * (vertices[vid]['screen']['yv'] + stepSize * cumulativeAccel[vid][1]);
 
-    vertices[nid]['x'] += stepSize * vertices[nid]['xv'];
-    vertices[nid]['y'] += stepSize * vertices[nid]['yv'];
+    vertices[vid]['screen']['x'] += stepSize * vertices[vid]['screen']['xv'];
+    vertices[vid]['screen']['y'] += stepSize * vertices[vid]['screen']['yv'];
   }
 }
 
@@ -322,15 +383,15 @@ var maxForceStrength = 2;
 var minForceStrength = -maxForceStrength;
 var minDist = 2;
 
-function displace(n1id, n2id, link) {
+function displace(v1id, v2id, link) {
   let closenessMultiplier = 1;
   let strengthMultiplier = 1.5;
-  let n1x = vertices[n1id]['x'],
-      n1y = vertices[n1id]['y'],
-      n2x = vertices[n2id]['x'],
-      n2y = vertices[n2id]['y'];
+  let v1x = vertices[v1id]['screen']['x'],
+      v1y = vertices[v1id]['screen']['y'],
+      v2x = vertices[v2id]['screen']['x'],
+      v2y = vertices[v2id]['screen']['y'];
 
-  let dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2));
+  let dist = Math.sqrt(Math.pow(v1x - v2x, 2) + Math.pow(v1y - v2y, 2));
   dist = Math.max(dist, minDist);
 
   let diff = link['closeness'] * closenessMultiplier - dist;
@@ -338,23 +399,23 @@ function displace(n1id, n2id, link) {
 
   force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
 
-  let off1x = force * (n1x - n2x) / dist,
-    off1y = force * (n1y - n2y) / dist,
-    off2x = force * (n2x - n1x) / dist,
-    off2y = force * (n2y - n1y) / dist;
+  let off1x = force * (v1x - v2x) / dist,
+    off1y = force * (v1y - v2y) / dist,
+    off2x = force * (v2x - v1x) / dist,
+    off2y = force * (v2y - v1y) / dist;
 
   return [off1x, off1y, off2x, off2y];
 }
 
-function antigravity(n1id, n2id) {
+function antigravity(v1id, v2id) {
   let closenessMultiplier = 1;
   let strengthMultiplier = 1;
-  let n1x = vertices[n1id]['x'],
-      n1y = vertices[n1id]['y'],
-      n2x = vertices[n2id]['x'],
-      n2y = vertices[n2id]['y'];
+  let v1x = vertices[v1id]['screen']['x'],
+      v1y = vertices[v1id]['screen']['y'],
+      v2x = vertices[v2id]['screen']['x'],
+      v2y = vertices[v2id]['screen']['y'];
 
-  let dist = Math.sqrt(Math.pow(n1x - n2x, 2) + Math.pow(n1y - n2y, 2));
+  let dist = Math.sqrt(Math.pow(v1x - v2x, 2) + Math.pow(v1y - v2y, 2));
   dist = Math.max(dist, minDist);
   // let diff = link['closeness'] * closenessMultiplier - dist;
   // let force = diff * link['strength'] * strengthMultiplier;
@@ -362,26 +423,26 @@ function antigravity(n1id, n2id) {
 
   force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
 
-  let off1x = force * (n1x - n2x) / dist,
-    off1y = force * (n1y - n2y) / dist,
-    off2x = force * (n2x - n1x) / dist,
-    off2y = force * (n2y - n1y) / dist;
+  let off1x = force * (v1x - v2x) / dist,
+    off1y = force * (v1y - v2y) / dist,
+    off2x = force * (v2x - v1x) / dist,
+    off2y = force * (v2y - v1y) / dist;
 
   return [off1x, off1y, off2x, off2y];
 }
 
-function origingravity(nid) {
-  let nx = vertices[nid]['x'],
-      ny = vertices[nid]['y'];
-  let dist = Math.sqrt(nx*nx + ny*ny);
+function origingravity(vid) {
+  let vertx = vertices[vid]['screen']['x'],
+      verty = vertices[vid]['screen']['y'];
+  let dist = Math.sqrt(vertx * vertx + verty * verty);
   dist = Math.max(dist, minDist);
 
   let force = -1./20 * twiddle * Math.pow(dist + 100, 1./1);
 
   force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
 
-  let offx = force * nx / dist;
-      offy = force * ny / dist;
+  let offx = force * vertx / dist;
+      offy = force * verty / dist;
 
   return [offx, offy];
 }
@@ -661,16 +722,35 @@ function panEnd() {
   fieldY = fY;
 }
 
+function normalizeMousePosition(event) {
+  let boundingRect = document.getElementById('display').getBoundingClientRect();
+  let x = (event.x - boundingRect.x - width / 2) / fS - fieldX;
+  let y = (event.y - boundingRect.y - height / 2) / fS - fieldY;
+  return [x, y];
+}
+
 function identifyTargets() {
 }
 
-function createNode() {
-  let newNodeId = "<TEMP>" + Math.random().toString();
-  let newNode = {'subgraphs': [], 'data': {'size': 10}};
-  nodeIds.push(newNodeId);
-  nodes[newNodeId] = newNode;
+function generateTempId() {
+  return "TEMP" + Math.random().toString().slice(2);
+}
 
-  syncDataAndGraphics();
+function createNode() {
+  let tempNodeId = generateTempId();
+  let tempNode = {'subgraphs': [], 'data': {'size': 10}};
+  nodeIds.push(tempNodeId);
+  nodes[tempNodeId] = tempNode;
+
+  let [x, y] = normalizeMousePosition(mouseEvents[1][0][0]);
+  let tempVertexId = generateTempId();
+  let tempVertex = {'screen': {'x': x, 'y': y, 'xv': 0, 'yv': 0}, 'node': tempNode, 'data': {}};
+  vertexIds.push(tempVertexId);
+  vertices[tempVertexId] = tempVertex;
+
+  graphs[graphIds[0]]['nodes'].push(tempNode);
+  webs[webIds[0]]['vertices'].push(tempVertex);
+
   drawSync();
 
   $.ajax('/updatedata', {
@@ -678,13 +758,31 @@ function createNode() {
     data: {'data': JSON.stringify([
       {
         '$model': 'node',
-        '$id': newNodeId,
-        '$create': {
+        '$id': tempNodeId,
+        '$create': [{
           '$action': 'overwrite',
           '$type': 'dict',
           '$key': 'data',
-          '$value': newNode['data'],
-        },
+          '$value': tempNode['data'],
+        }],
+      },
+      {
+        '$model': 'vertex',
+        '$id': tempVertexId,
+        '$create': [
+          {
+            '$action': 'overwrite',
+            '$type': 'dict',
+            '$key': 'screen',
+            '$value': tempVertex['screen'],
+          },
+          {
+            '$action': 'overwrite',
+            '$type': 'model',
+            '$key': 'node',
+            '$value': {'$model': 'node', '$id': tempNodeId},
+          },
+        ],
       },
       {
         '$model': 'graph',
@@ -693,23 +791,40 @@ function createNode() {
           '$action': 'append',
           '$type': 'model',
           '$key': 'nodes',
-          '$value': {'$model': 'node', '$id': newNodeId},
+          '$value': {'$model': 'node', '$id': tempNodeId},
+        }],
+      },
+      {
+        '$model': 'web',
+        '$id': webIds[0],
+        '$update': [{
+          '$action': 'append',
+          '$type': 'model',
+          '$key': 'vertices',
+          '$value': {'$model': 'vertex', '$id': tempVertexId},
         }],
       },
     ])},
     success: function(responseData) {
       console.log('SUCCESS ', responseData);
-      let parsed = JSON.parse(responseData['return_data'][0]);
-      let realId = null;
-      for (let key in parsed['Node']) {
-        realId = realId || key;
-      }
-      nodes[realId] = newNode;
-      delete nodes[newNodeId];
-      nodeIds.pop()
-      nodeIds.push(realId)
+      let parsed;
 
-      syncDataAndGraphics();
+      // Fix temporary node id
+      parsed = JSON.parse(responseData['return_data'][0]);
+      initNodes(parsed);
+      delete nodes[tempNodeId];
+      nodeIds.splice(nodeIds.indexOf(tempNodeId), 1);
+
+      // Fix temporary vertex id
+      parsed = JSON.parse(responseData['return_data'][1]);
+      let newVertexIds = initVertices(parsed);
+      delete vertices[tempVertexId];
+      vertexIds.splice(vertexIds.indexOf(tempVertexId), 1);
+      field.select('#' + tempVertexId).attr('id', newVertexIds[0]);
+
+      graphs[graphIds[0]]['nodes'].splice(graphs[graphIds[0]]['nodes'].indexOf(tempNodeId), 1);
+      webs[webIds[0]]['vertices'].splice(webs[webIds[0]]['vertices'].indexOf(tempVertexId), 1);
+
       drawSync();
     },
     error: function(responseData) {
@@ -718,28 +833,21 @@ function createNode() {
   });
 }
 
-function normalizeMousePosition(event) {
-  let boundingRect = document.getElementById('display').getBoundingClientRect();
-  let x = (event.x - boundingRect.x - width / 2) / fS - fieldX;
-  let y = (event.y - boundingRect.y - height / 2) / fS - fieldY;
-  return [x, y];
-}
-
 function highlightClosestNode() {
   let [x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
   let max_dist = 20 / fS;
 
-  for (let i in nodeIds) {
-    let id = nodeIds[i];
-    let vx = vertices[id]['x'];
-    let vy = vertices[id]['y'];
+  for (let i in vertexIds) {
+    let vertex = vertices[vertexIds[i]];
+    let vx = vertex['screen']['x'];
+    let vy = vertex['screen']['y'];
 
     let dist = Math.pow(vx - x, 2) + Math.pow(vy - y, 2);
 
     if (dist < Math.pow(max_dist, 2)) {
-      vertices[id]['color'] = 'white';
+      vertex['screen']['color'] = 'white';
     } else {
-      vertices[id]['color'] = 'gray';
+      vertex['screen']['color'] = 'gray';
     }
   }
   draw();
@@ -761,6 +869,5 @@ continuousTriggers = [
 
 changeTriggers = [
   [/drag->hover/, [panEnd]],
-  [/click->hover/, [multiClick]],
+  [/(click-)?down->click/, [multiClick]],
 ]
-
