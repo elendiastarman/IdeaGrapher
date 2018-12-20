@@ -1,16 +1,17 @@
 "use strict;"
 
 var svg = d3.select('#display');
-var field;
+var fieldPane, fieldClip, dataPane, dataClip, paneSplitBorder, svgDefs;
 
 var width = 1200,
     height = 900,
-    fieldX = 0,
-    fieldY = 0,
-    fieldScale = 1,
-    fX = fieldX,
-    fY = fieldY,
-    fS = fieldScale;
+    fieldPaneX = 0,
+    fieldPaneY = 0,
+    fieldPaneScale = 1,
+    fX = fieldPaneX,
+    fY = fieldPaneY,
+    fS = fieldPaneScale,
+    paneSplitPercent = 0.75;
 
 var nodes = {}
     nodeIds = [],
@@ -36,23 +37,35 @@ function init() {
 
   loadData();
 
-  svg.attr('width', width).attr('height', height).style('border', '1px solid black');
+  svg.style('border', '1px solid black');
   svg.append('rect')
     .attr('id', 'background')
-    .attr('width', width)
-    .attr('height', height)
     .attr('fill', 'white');
 
-  field = svg.append('g')
-    .attr('id', 'field')
-    .attr('transform', 'translate(' + (fieldX) + ', ' + (fieldY) + ')');
+  svgDefs = svg.append('defs');
+  fieldClip = svgDefs.append('clipPath').attr('id', 'fieldClip');
+  fieldClip.append('rect');
 
+  paneSplitBorder = svg.append('rect')
+    .attr('id', '#paneSplitBorder')
+    .attr('y', 0)
+    .attr('width', 3)
+    .style('fill', 'black')
+    .call(d3.drag().on('drag', dragPaneSplit));
+
+  fieldPane = svg.append('g')
+    .attr('id', 'fieldPane')
+    .style('clip-path', 'url(#fieldClip)')
+    .attr('transform', 'translate(' + (fieldPaneX) + ', ' + (fieldPaneY) + ')');
+
+  resizeSVG();
   drawSync();
 
   $('#start').on('click', start);
   $('#stop').on('click', stop);
   $('#step').on('click', step);
   $('#webname').on('focusout', saveWebname);
+  $(window).on('resize', resizeSVG);
 
   svg.on('mousedown', handleMouseDown);
   svg.on('mouseup', handleMouseUp);
@@ -215,8 +228,45 @@ function loadData() {
   initWebs(data);
 }
 
+function resizeSVG() {
+  let totalWidth = $(window).width(),
+      totalHeight = $(window).height();
+
+  width = totalWidth - 15;
+  height = totalHeight - 150;
+
+  svg.attr('width', width).attr('height', height);
+  svg.select('#background')
+    .attr('width', width)
+    .attr('height', height);
+
+  paneSplitBorder.attr('height', height).attr('x', paneSplitPercent * width - 1);
+
+  adjustFieldClip();
+  draw();
+}
+
+function dragPaneSplit() {
+  let x = d3.event.x,
+      y = d3.event.y;
+
+  paneSplitPercent = x / width;
+  paneSplitBorder.attr('x', paneSplitPercent * width - 1);
+
+  adjustFieldClip();
+  draw();
+}
+
+function adjustFieldClip() {
+  fieldClip.select('rect')
+    .attr('x', -fX - width / fS / 2)
+    .attr('y', -fY - height / fS / 2)
+    .attr('width', width * paneSplitPercent / fS - 1)
+    .attr('height', height / fS);
+}
+
 function drawSync() {
-  let vData = field.selectAll('.vertex').data(vertexIds, function(d){ return d; });
+  let vData = fieldPane.selectAll('.vertex').data(vertexIds, function(d){ return d; });
   let vEnterGroup = vData.enter().append('g')
     .attr('class', 'vertex')
     .attr('id', function(d){ return d; });
@@ -243,7 +293,7 @@ function drawSync() {
 
   vData.exit().remove();
 
-  let eData = field.selectAll('.edge').data(edgeIds, function(d){ return d; });
+  let eData = fieldPane.selectAll('.edge').data(edgeIds, function(d){ return d; });
   let eGroup = eData.enter().append('g')
     .attr('class', 'edge')
     .attr('id', function(d){ return d; });
@@ -257,7 +307,7 @@ function drawSync() {
 }
 
 function draw() {
-  let vData = field.selectAll('.vertex').data(vertexIds, function(d){ return d; });
+  let vData = fieldPane.selectAll('.vertex').data(vertexIds, function(d){ return d; });
   vData.selectAll('circle')
     .attr('cx', function(d){ return vertices[d]['screen']['x']; })
     .attr('cy', function(d){ return vertices[d]['screen']['y']; })
@@ -273,7 +323,7 @@ function draw() {
   vData.selectAll('text.inner')
     .style('stroke-width', 1 / fS);
 
-  let eData = field.selectAll('.edge').data(edgeIds, function(d){ return d; });
+  let eData = fieldPane.selectAll('.edge').data(edgeIds, function(d){ return d; });
   eData.selectAll('line')
     .attr('x1', function(d){ return edges[d]['start_vertices'][0]['screen']['x']; })
     .attr('y1', function(d){ return edges[d]['start_vertices'][0]['screen']['y']; })
@@ -281,7 +331,7 @@ function draw() {
     .attr('y2', function(d){ return edges[d]['end_vertices'][0]['screen']['y']; })
     .attr('stroke-width', function(d){ return (2 / fS) + 'px'; });
 
-  field.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
+  fieldPane.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
 }
 
 doPhysics = false;
@@ -307,6 +357,7 @@ function step() {
   }
 
   if (changed) {
+    adjustFieldClip();
     draw();
   }
 }
@@ -665,15 +716,15 @@ function respondToInput() {
   let changed = false;
 
   if(mouseState["scroll"][1] < 0) {
-    fS = fieldScale * 1.2;
+    fS = fieldPaneScale * 1.2;
     changed = true;
   } else if (mouseState["scroll"][1] > 0) {
-    fS = fieldScale / 1.2;
+    fS = fieldPaneScale / 1.2;
     changed = true;
   } else {
-    fS = fieldScale;
+    fS = fieldPaneScale;
   }
-  fieldScale = fS;
+  fieldPaneScale = fS;
 
   return changed;
 }
@@ -712,20 +763,21 @@ function executeChangeTriggers(oldState, newState) {
 
 function pan() {
   if(mouseState["buttons"] == 1) {
-      fX = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldX;
-      fY = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldY;
+      fX = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldPaneX;
+      fY = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldPaneY;
+      adjustFieldClip();
     }
 }
 
 function panEnd() {
-  fieldX = fX;
-  fieldY = fY;
+  fieldPaneX = fX;
+  fieldPaneY = fY;
 }
 
 function normalizeMousePosition(event) {
   let boundingRect = document.getElementById('display').getBoundingClientRect();
-  let x = (event.x - boundingRect.x - width / 2) / fS - fieldX;
-  let y = (event.y - boundingRect.y - height / 2) / fS - fieldY;
+  let x = (event.x - boundingRect.x - width / 2) / fS - fieldPaneX;
+  let y = (event.y - boundingRect.y - height / 2) / fS - fieldPaneY;
   return [x, y];
 }
 
@@ -820,7 +872,7 @@ function createNode() {
       let newVertexIds = initVertices(parsed);
       delete vertices[tempVertexId];
       vertexIds.splice(vertexIds.indexOf(tempVertexId), 1);
-      field.select('#' + tempVertexId).attr('id', newVertexIds[0]);
+      fieldPane.select('#' + tempVertexId).attr('id', newVertexIds[0]);
 
       graphs[graphIds[0]]['nodes'].splice(graphs[graphIds[0]]['nodes'].indexOf(tempNodeId), 1);
       webs[webIds[0]]['vertices'].splice(webs[webIds[0]]['vertices'].indexOf(tempVertexId), 1);
