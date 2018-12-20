@@ -243,7 +243,7 @@ function drawSync() {
 
   vData.exit().remove();
 
-  let eData = field.selectAll('.edge').data(edgeIds);
+  let eData = field.selectAll('.edge').data(edgeIds, function(d){ return d; });
   let eGroup = eData.enter().append('g')
     .attr('class', 'edge')
     .attr('id', function(d){ return d; });
@@ -257,7 +257,7 @@ function drawSync() {
 }
 
 function draw() {
-  let vData = field.selectAll('.vertex');
+  let vData = field.selectAll('.vertex').data(vertexIds, function(d){ return d; });
   vData.selectAll('circle')
     .attr('cx', function(d){ return vertices[d]['screen']['x']; })
     .attr('cy', function(d){ return vertices[d]['screen']['y']; })
@@ -273,7 +273,7 @@ function draw() {
   vData.selectAll('text.inner')
     .style('stroke-width', 1 / fS);
 
-  let eData = field.selectAll('.edge').data(edgeIds);
+  let eData = field.selectAll('.edge').data(edgeIds, function(d){ return d; });
   eData.selectAll('line')
     .attr('x1', function(d){ return edges[d]['start_vertices'][0]['screen']['x']; })
     .attr('y1', function(d){ return edges[d]['start_vertices'][0]['screen']['y']; })

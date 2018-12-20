@@ -15,25 +15,18 @@
         
         <div style="float:left">
             <ul class="tabs">
-                <li><a href="{{ url_for('home_view') }}">LOGO</a></li>
-                <!--<li>Artists</li>-->
-                <!--<li>Items</li>
-                <li>Tags</li>
-                <li>Portfolio</li>
-                <li>About</li>-->
+                <li><a href="{{ url_for('home_view') }}">Home</a></li>
             </ul>
         </div>
     </div>
     
-    <hr style="clear:both; margin:0"/>
     
     <div id="content">
         {% block content %}{% endblock %}
     </div>
     
-    <hr style="clear:both; margin:0;"/>
     <div id="footer">
-        <p style="width: 90%; margin: 5px auto;">Built and maintained by Starman Innovations.</p>
+        <p style="width: 90%; margin: 5px auto;"><strong>Built and maintained by Starman Innovations.</strong></p>
     </div>
 {% endblock %}
 

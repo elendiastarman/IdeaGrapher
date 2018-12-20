@@ -1,7 +1,7 @@
 body {
     margin: 0px;
-    background-color: #B87333;
-    color: #FFF;
+    background-color: #DDD;
+    color: #000;
     font-family: Helvetica;
 }
 
@@ -25,12 +25,14 @@ body {
     font-size: 24px;
 }
 
+#header, #footer {
+    background-color: #CCC;
+    padding: 5px;
+}
 #header {
-    height: 110px;
-	background-image: -webkit-linear-gradient(to bottom right, #80559a, #1a4929);
-	background-image: -o-linear-gradient(to right, #80559a, #1a4929);
-	background-image: -moz-linear-gradient(to right, #80559a, #1a4929);
-	background-image: linear-gradient(to bottom right, #80559a, #1a4929);
+    height: 40px;
+}
+#footer {
 }
 
 #content {
