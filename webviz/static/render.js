@@ -11,6 +11,12 @@ var width = 1200,
     fX = fieldPaneX,
     fY = fieldPaneY,
     fS = fieldPaneScale,
+    dataPaneX = 0,
+    dataPaneY = 0,
+    dataPaneScale = 1,
+    dX = dataPaneX,
+    dY = dataPaneY,
+    dS = dataPaneScale,
     paneSplitPercent = 0.75;
 
 var nodes = {}
@@ -26,6 +32,7 @@ var nodes = {}
     webs = {},
     webIds = [],
     vertices = {},
+    selected = [],
     edges = {},
     pairs = {};
 
@@ -45,6 +52,8 @@ function init() {
   svgDefs = svg.append('defs');
   fieldClip = svgDefs.append('clipPath').attr('id', 'fieldClip');
   fieldClip.append('rect');
+  dataClip = svgDefs.append('clipPath').attr('id', 'dataClip');
+  dataClip.append('rect');
 
   paneSplitBorder = svg.append('rect')
     .attr('id', '#paneSplitBorder')
@@ -55,8 +64,11 @@ function init() {
 
   fieldPane = svg.append('g')
     .attr('id', 'fieldPane')
-    .style('clip-path', 'url(#fieldClip)')
-    .attr('transform', 'translate(' + (fieldPaneX) + ', ' + (fieldPaneY) + ')');
+    .style('clip-path', 'url(#fieldClip)');
+
+  dataPane = svg.append('g')
+    .attr('id', 'dataPane')
+    .style('clip-path', 'url(#dataClip)');
 
   resizeSVG();
   drawSync();
@@ -243,6 +255,7 @@ function resizeSVG() {
   paneSplitBorder.attr('height', height).attr('x', paneSplitPercent * width - 1);
 
   adjustFieldClip();
+  adjustDataClip();
   draw();
 }
 
@@ -254,15 +267,24 @@ function dragPaneSplit() {
   paneSplitBorder.attr('x', paneSplitPercent * width - 1);
 
   adjustFieldClip();
+  adjustDataClip();
   draw();
 }
 
 function adjustFieldClip() {
   fieldClip.select('rect')
-    .attr('x', -fX - width / fS / 2)
+    .attr('x', -fX - (width * paneSplitPercent) / fS / 2)
     .attr('y', -fY - height / fS / 2)
     .attr('width', width * paneSplitPercent / fS - 1)
     .attr('height', height / fS);
+}
+
+function adjustDataClip() {
+  dataClip.select('rect')
+    // .attr('x', -fX - width / fS / 2)
+    // .attr('y', -fY - height / fS / 2)
+    .attr('width', width * (1 - paneSplitPercent) - 1)
+    .attr('height', height);
 }
 
 function drawSync() {
@@ -331,7 +353,12 @@ function draw() {
     .attr('y2', function(d){ return edges[d]['end_vertices'][0]['screen']['y']; })
     .attr('stroke-width', function(d){ return (2 / fS) + 'px'; });
 
-  fieldPane.attr('transform', 'translate(' + (fX * fS + width/2) + ', ' + (fY * fS + height/2) + ') scale(' + (fS) + ')');
+  fieldPane.attr('transform', 'translate(' + (fX * fS + (width * paneSplitPercent) / 2) + ', ' + (fY * fS + height / 2) + ') scale(' + (fS) + ')');
+  dataPane.attr('transform', 'translate(' + (dX * dS + width * (1 - paneSplitPercent)) + ', ' + (dY * dS + height) + ') scale(' + (dS) + ')');
+}
+
+function populateDataPane(element) {
+  // pass
 }
 
 doPhysics = false;
@@ -774,14 +801,53 @@ function panEnd() {
   fieldPaneY = fY;
 }
 
+function whichPane(x, y) {
+  if (x < width * paneSplitPercent) {
+    return 'field';
+  } else {
+    return 'data';
+  }
+}
+
 function normalizeMousePosition(event) {
   let boundingRect = document.getElementById('display').getBoundingClientRect();
-  let x = (event.x - boundingRect.x - width / 2) / fS - fieldPaneX;
-  let y = (event.y - boundingRect.y - height / 2) / fS - fieldPaneY;
+  let realX = event.x - boundingRect.x;
+  let realY = event.y - boundingRect.y;
+
+  let pane = whichPane(realX, realY);
+  let x, y;
+
+  if (pane == 'field') {
+    x = (realX - width * paneSplitPercent / 2) / fS - fieldPaneX;
+    y = (realY - height / 2) / fS - fieldPaneY;
+  } else if (pane == 'data') {
+    x = (realX - width * paneSplitPercent) / dS - dataPaneX;
+    y = (realY - height) / dS - dataPaneY;
+  }
+
   return [x, y];
 }
 
-function identifyTargets() {
+function identifyTargets(x, y, max_dist, types) {
+  let targets = [[null, Infinity]];
+  max_dist = max_dist || function(){ return Infinity; };
+  types = types || [];
+
+  if (types.indexOf('vertices') > -1) {
+    for (let vid in vertices) {
+      let vert = vertices[vid];
+      let vx = vert['screen']['x'];
+      let vy = vert['screen']['y'];
+      let dist = Math.sqrt((vx - x)**2 + (vy - y)**2);
+
+      if (dist < max_dist(vert)) {
+        targets.push([vert, dist]);
+      }
+    }
+  }
+
+  targets.sort(function(a, b){ return a[1] - b[1]; })
+  return targets
 }
 
 function generateTempId() {
@@ -885,23 +951,31 @@ function createNode() {
   });
 }
 
-function highlightClosestNode() {
+function highlightClosestVertex() {
   let [x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
-  let max_dist = 20 / fS;
+  let max_dist = function(vert){
+    return vert['node']['data']['size'] / fS;
+  };
 
-  for (let i in vertexIds) {
-    let vertex = vertices[vertexIds[i]];
-    let vx = vertex['screen']['x'];
-    let vy = vertex['screen']['y'];
+  let targets = identifyTargets(x, y, max_dist, ['vertices']);
 
-    let dist = Math.pow(vx - x, 2) + Math.pow(vy - y, 2);
-
-    if (dist < Math.pow(max_dist, 2)) {
-      vertex['screen']['color'] = 'white';
+  // deselect any currently selected vertices
+  let i = 0;
+  while (i < selected.length) {
+    if (selected[i]['type'] == 'vertex') {
+      selected[i]['element']['screen']['color'] = 'gray';
+      selected.splice(i, 1);
     } else {
-      vertex['screen']['color'] = 'gray';
+      i += 1;
     }
   }
+
+  if (targets.length > 1) {
+    targets[0][0]['screen']['color'] = 'white';
+    selected.push({'type': 'vertex', 'element': targets[0][0]});
+  }
+
+  populateDataPane(targets[0][0]);
   draw();
 }
 
@@ -909,7 +983,7 @@ function multiClick() {
   let targets = identifyTargets();
 
   if (mouseState['clicks'] == 1) {
-    highlightClosestNode();
+    highlightClosestVertex();
   } else if (mouseState['clicks'] == 2) {
     createNode();
   }
