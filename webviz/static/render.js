@@ -1,7 +1,8 @@
 "use strict;"
 
 var svg = d3.select('#display');
-var fieldPane, fieldClip, dataPane, dataClip, paneSplitBorder, svgDefs;
+var fieldPane, fieldClip, dataPane, dataPaneContent, dataClip, paneSplitBorder, svgDefs;
+var test;
 
 var width = 1200,
     height = 900,
@@ -69,6 +70,13 @@ function init() {
   dataPane = svg.append('g')
     .attr('id', 'dataPane')
     .style('clip-path', 'url(#dataClip)');
+  dataPane.append('foreignObject')
+    .attr('x', 5)
+    .attr('y', 5);
+  dataPane.select('foreignObject').append('xhtml:div')
+    .attr('id', 'dataPaneContent')
+    .attr('xmlns', 'http://www.w3.org/1999/xhtml');
+  dataPaneContent = dataPane.select('#dataPaneContent');
 
   resizeSVG();
   drawSync();
@@ -83,7 +91,11 @@ function init() {
   svg.on('mouseup', handleMouseUp);
   svg.on('mousemove', handleMouseMove);
   svg.on('wheel.zoom', handleMouseScroll);
-  svg.on('contextmenu', function(){ d3.event.preventDefault(); });
+  svg.on('contextmenu', function(){
+    if (whichPane(d3.event)[0] == 'field') {
+      d3.event.preventDefault();
+    }
+  });
 
   // start();
   let delay = 20;
@@ -253,6 +265,9 @@ function resizeSVG() {
     .attr('height', height);
 
   paneSplitBorder.attr('height', height).attr('x', paneSplitPercent * width - 1);
+  dataPane.select('foreignObject')
+    .attr('width', width * (1 - paneSplitPercent))
+    .attr('height', height);
 
   adjustFieldClip();
   adjustDataClip();
@@ -283,6 +298,8 @@ function adjustDataClip() {
   dataClip.select('rect')
     // .attr('x', -fX - width / fS / 2)
     // .attr('y', -fY - height / fS / 2)
+    .attr('x', 0)
+    .attr('y', 0)
     .attr('width', width * (1 - paneSplitPercent) - 1)
     .attr('height', height);
 }
@@ -354,11 +371,31 @@ function draw() {
     .attr('stroke-width', function(d){ return (2 / fS) + 'px'; });
 
   fieldPane.attr('transform', 'translate(' + (fX * fS + (width * paneSplitPercent) / 2) + ', ' + (fY * fS + height / 2) + ') scale(' + (fS) + ')');
-  dataPane.attr('transform', 'translate(' + (dX * dS + width * (1 - paneSplitPercent)) + ', ' + (dY * dS + height) + ') scale(' + (dS) + ')');
+  dataPane.attr('transform', 'translate(' + (dX * dS + width * paneSplitPercent) + ', ' + (dY * dS) + ') scale(' + (dS) + ')');
 }
 
 function populateDataPane(element) {
-  // pass
+  console.log('populateDataPane', element);
+  dataPaneContent.selectAll('*').remove();
+
+  if (element != null) {
+    dataPaneContent.append('p').html('Vertex: ' + element['id']);
+    dataPaneContent.append('p').html('<strong>screen</strong>');
+    dataPaneContent.append('textarea')
+      .attr('id', 'vertex-screen')
+      .html(JSON.stringify(element['screen']));
+  }
+
+  dataPaneContent.selectAll('*').on('focusout', applyDataChanges)
+}
+
+function applyDataChanges() {
+  console.log('applyDataChanges');
+  element = selected[0]['element'];
+  let newValue = JSON.parse(dataPaneContent.select('#vertex-screen').property('value'));
+  console.log('newValue:', newValue);
+  element['screen'] = newValue;
+  console.log('applyDataChanges', element);
 }
 
 doPhysics = false;
@@ -374,8 +411,7 @@ function step() {
   let changed = false;
   updateMouseEventData();
   changed = updateMouseState() || changed;
-  changed = respondToInput() || changed;
-
+  changed = respondToScrollInput() || changed;
   changed = executeContinuousTriggers() || changed;
 
   if (doPhysics) {
@@ -535,10 +571,12 @@ var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, m
 var mouseEventTimes = [now, now, now, now, now];
 var mouseEventsTemp = [[[null, null]], [], [], [], []]; // helps avoid race conditions
 var mouseEventTimesTemp = [now, now, now, now, now];
-var mouseState = {"state": "hover", "scrollTime": 0, "changed": false};
+var mouseState = {"state": "hover", "scrollTime": 0, "changed": false, "scrolled": false};
 
 function handleMouseDown() {
-  d3.event.preventDefault();
+  if (whichPane(d3.event)[0] == 'field') {
+    d3.event.preventDefault();
+  }
   mouseState['changed'] = true;
 
   mouseEventsTemp[d3.event.which].unshift([d3.event, null]);
@@ -547,7 +585,9 @@ function handleMouseDown() {
 }
 
 function handleMouseUp() {
-  d3.event.preventDefault();
+  if (whichPane(d3.event)[0] == 'field') {
+    d3.event.preventDefault();
+  }
   mouseState['changed'] = true;
 
   mouseEventsTemp[d3.event.which][0][1] = d3.event;
@@ -556,7 +596,9 @@ function handleMouseUp() {
 }
 
 function handleMouseMove() {
-  d3.event.preventDefault();
+  if (whichPane(d3.event)[0] == 'field') {
+    d3.event.preventDefault();
+  }
   mouseState['changed'] = true;
 
   mouseEventsTemp[0][0][1] = d3.event;
@@ -564,8 +606,11 @@ function handleMouseMove() {
 }
 
 function handleMouseScroll() {
-  d3.event.preventDefault();
+  if (whichPane(d3.event)[0] == 'field') {
+    d3.event.preventDefault();
+  }
   mouseState['changed'] = true;
+  mouseState['scrolled'] = true;
 
   mouseEventsTemp[4].unshift(d3.event);
   mouseEventTimesTemp[4] = Date.now();
@@ -739,8 +784,18 @@ function updateMouseState() {
   return changed;
 }
 
-function respondToInput() {
+function respondToScrollInput() {
   let changed = false;
+  if (!mouseState['scrolled']) {
+    return false;
+  }
+
+  mouseState['scrolled'] = false;
+
+  let [pane, x, y] = normalizeMousePosition(mouseEvents[4][0]);
+  if (pane != 'field') {
+    return false;
+  }
 
   if(mouseState["scroll"][1] < 0) {
     fS = fieldPaneScale * 1.2;
@@ -789,7 +844,7 @@ function executeChangeTriggers(oldState, newState) {
 }
 
 function pan() {
-  if(mouseState["buttons"] == 1) {
+  if(mouseState["buttons"] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'field') {
       fX = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / fS + fieldPaneX;
       fY = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / fS + fieldPaneY;
       adjustFieldClip();
@@ -797,24 +852,31 @@ function pan() {
 }
 
 function panEnd() {
-  fieldPaneX = fX;
-  fieldPaneY = fY;
-}
-
-function whichPane(x, y) {
-  if (x < width * paneSplitPercent) {
-    return 'field';
-  } else {
-    return 'data';
+  if (whichPane(mouseEvents[0][0][0])[0] == 'field') {
+    fieldPaneX = fX;
+    fieldPaneY = fY;
   }
 }
 
-function normalizeMousePosition(event) {
+function whichPane(event) {
   let boundingRect = document.getElementById('display').getBoundingClientRect();
   let realX = event.x - boundingRect.x;
   let realY = event.y - boundingRect.y;
+  let pane = null;
 
-  let pane = whichPane(realX, realY);
+  if (realX < width * paneSplitPercent) {
+    pane = 'field';
+  } else {
+    pane = 'data';
+  }
+
+  return [pane, realX, realY];
+}
+
+function normalizeMousePosition(event) {
+  console.log('normalizeMousePosition');
+
+  let [pane, realX, realY] = whichPane(event);
   let x, y;
 
   if (pane == 'field') {
@@ -825,7 +887,7 @@ function normalizeMousePosition(event) {
     y = (realY - height) / dS - dataPaneY;
   }
 
-  return [x, y];
+  return [pane, x, y];
 }
 
 function identifyTargets(x, y, max_dist, types) {
@@ -855,12 +917,16 @@ function generateTempId() {
 }
 
 function createNode() {
+  let [pane, x, y] = normalizeMousePosition(mouseEvents[1][0][0]);
+  if (pane != 'field') {
+    return;
+  }
+
   let tempNodeId = generateTempId();
   let tempNode = {'subgraphs': [], 'data': {'size': 10}};
   nodeIds.push(tempNodeId);
   nodes[tempNodeId] = tempNode;
 
-  let [x, y] = normalizeMousePosition(mouseEvents[1][0][0]);
   let tempVertexId = generateTempId();
   let tempVertex = {'screen': {'x': x, 'y': y, 'xv': 0, 'yv': 0}, 'node': tempNode, 'data': {}};
   vertexIds.push(tempVertexId);
@@ -952,7 +1018,11 @@ function createNode() {
 }
 
 function highlightClosestVertex() {
-  let [x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
+  let [pane, x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
+  if (pane == 'data') {
+    return;
+  }
+
   let max_dist = function(vert){
     return vert['node']['data']['size'] / fS;
   };

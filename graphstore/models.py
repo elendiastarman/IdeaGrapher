@@ -211,16 +211,15 @@ class MongoModel(object, metaclass=MongoModelMeta):
       refs = bundle.setdefault(self.__class__.__name__, {})
       refs[self.id] = output
 
-    return output
+    if kwargs.get('include_id', False):
+      output['id'] = self.id
 
-  def serialize_with_id(self, **kwargs):
-    data = self.serialize(**kwargs)
-    data['id'] = self.id
-    return data
+    return output
 
   def json(self, **kwargs):
     kwargs.setdefault('bundle', {})
-    self.serialize_with_id(**kwargs)
+    kwargs.setdefault('include_id', True)
+    self.serialize(**kwargs)
     return json.dumps(kwargs.get('bundle'))
 
   @classmethod
