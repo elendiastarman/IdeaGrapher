@@ -398,7 +398,6 @@ function step() {
 
 function saveWebname() {
   let inputName = $('#webname').val();
-  console.log(inputName);
   web = webs[webIds[0]];
   if (inputName != web['name']) {
     web['name'] = inputName;
@@ -845,8 +844,6 @@ function whichPane(event) {
 }
 
 function normalizeMousePosition(event) {
-  console.log('normalizeMousePosition');
-
   let [pane, realX, realY] = whichPane(event);
   let x, y;
 
