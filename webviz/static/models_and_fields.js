@@ -1,4 +1,8 @@
 "use strict";
+if (typeof Proxy == "undefined") {
+    throw new Error("This browser doesn't support Proxy.");
+}
+
 var modelRefs = {};
 
 class BaseField {
@@ -113,7 +117,7 @@ class ListField extends BaseField {
     let values = [];
 
     for (let index = 0; index < data.length; index += 1) {
-      let field = this.fieldClass(...this.fieldArgs);
+      let field = new this.fieldClass(...this.fieldArgs);
       values.push(field.deserialize(data[index]));
     }
 
@@ -139,6 +143,20 @@ class ModelField extends BaseField {
   constructor(modelName, params) {
     super(params)
     this.modelName = modelName;
+
+    let model = modelMap[this.modelName];
+    if (model === undefined) {
+      throw new Error("You dummy, you forgot to update modelMap to include" + this.modelName + ".");
+    }
+
+    let fields = model._getClassFields();
+
+    for (let field in fields) {
+      Object.defineProperty(this, field, {
+        "enumerable": true,
+        "get": () => this._value[field],
+      })
+    }
   }
 
   serialize() {
@@ -175,6 +193,30 @@ class DictField extends BaseField {
   constructor(params) {
     params.default = params.default || {}
     super(params)
+
+    let proxy = new Proxy(this, {
+      get(target, name, receiver) {
+        if (!Reflect.has(target, name)) {
+          if (!Reflect.has(target._value, name)) {
+            // console.log("Getting non-existent property '" + name + "'");
+            return undefined;
+          }
+          return Reflect.get(target._value, name, receiver);
+        }
+        return Reflect.get(target, name, receiver);
+      },
+      set(target, name, value, receiver) {
+        if (!Reflect.has(target, name)) {
+          if (!Reflect.has(target._value, name)) {
+            // console.log(`Setting non-existent property '${name}', initial value: ${value}`);
+          }
+          return Reflect.set(target._value, name, value, receiver);
+        }
+        return Reflect.set(target, name, value, receiver);
+      }
+    })
+
+    return proxy;
   }
 }
 
@@ -212,22 +254,36 @@ class BaseModel {
   }
 
   _modelName() { throw new Error("Not yet implemented!") }
-  _getFields() { throw new Error("Not yet implemented!") }
+  static _getClassFields() { throw new Error("Not yet implemented!") }
+  _getFields() { return modelMap[this.constructor.name]._getClassFields(); }
 }
 
 class Web extends BaseModel {
   _modelName() { return "Web"; }
-  _getFields() {
+  static _getClassFields() {
     return {
       "name": new StringField({default: "", placeholder: "Untitled"}),
       "graph": new ModelField("Graph", {}),
+      "vertices": new ListField(ModelField, ["Vertex", {}], {}),
+    }
+  }
+}
+
+class Vertex extends BaseModel {
+  _modelName() { return "Vertex"; }
+  static _getClassFields() {
+    return {
+      "node": new ModelField("Node", {}),
+      "subwebs": new ListField(ModelField, ["Web", {}], {}),
+      "screen": new DictField({}),
+      "data": new DictField({}),
     }
   }
 }
 
 class Graph extends BaseModel {
   _modelName() { return "Graph"; }
-  _getFields() {
+  static _getClassFields() {
     return {
       "nodes": new ListField(ModelField, ["Node", {}], {}),
       // "links": new ListField(ModelField, ["Link", {}], {}),
@@ -237,7 +293,7 @@ class Graph extends BaseModel {
 
 class Node extends BaseModel {
   _modelName() { return "Node"; }
-  _getFields() {
+  static _getClassFields() {
     return {
       "subgraphs": new ListField(ModelField, ["Graph", {}], {}),
       "data": new DictField({}),
@@ -248,6 +304,7 @@ class Node extends BaseModel {
 
 var modelMap = {
   "Web": Web,
+  "Vertex": Vertex,
   "Graph": Graph,
   "Node": Node,
   // "Link": Link,

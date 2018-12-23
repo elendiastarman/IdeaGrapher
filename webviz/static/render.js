@@ -1,8 +1,11 @@
 "use strict;"
+// The following come from models-and-fields.js:
+// Web, Graph, Vertex, Node
+
+// console.log(Web);
 
 var svg = d3.select('#display');
 var fieldPane, fieldClip, dataPane, dataPaneContent, dataClip, paneSplitBorder, svgDefs;
-var test;
 
 var width = 1200,
     height = 900,
@@ -114,7 +117,8 @@ function initNodes(data) {
   nodesData = data['Node'] || [];
   let newNodeIds = [];
   for (let key in nodesData) {
-    nodes[key] = nodesData[key];
+    let newNode = new Node(nodesData[key]);
+    nodes[key] = newNode;
     nodeIds.push(key);
     newNodeIds.push(key);
   }
@@ -126,11 +130,12 @@ function initVertices(data) {
   verticesData = data['Vertex'] || [];
   let newVertexIds = [];
   for (let key in verticesData) {
-    vertices[key] = verticesData[key];
+    let newVertex = new Vertex(verticesData[key]);
+    vertices[key] = newVertex;
     vertexIds.push(key);
     newVertexIds.push(key);
 
-    vertices[key]['node'] = nodes[verticesData[key]['node']];
+    // vertices[key]['node'] = nodes[verticesData[key]['node']];
   }
 
   vertexIds.forEach(function(v1id) {
@@ -204,17 +209,18 @@ function initGraphs(data) {
   graphsData = data['Graph'] || [];
   let newGraphIds = [];
   for (let key in graphsData) {
-    graphs[key] = graphsData[key];
+    let newGraph = new Graph(graphsData[key]);
+    graphs[key] = newGraph;
     graphIds.push(key);
     newGraphIds.push(key);
 
-    for (let index in graphsData[key]['nodes']) {
-      graphs[key]['nodes'][index] = nodes[graphsData[key]['nodes'][index]];
-    }
+    // for (let index in graphsData[key]['nodes']) {
+    //   graphs[key]['nodes'][index] = nodes[graphsData[key]['nodes'][index]];
+    // }
 
-    for (let index in graphsData[key]['links']) {
-      graphs[key]['links'][index] = links[graphsData[key]['links'][index]];
-    }
+    // for (let index in graphsData[key]['links']) {
+    //   graphs[key]['links'][index] = links[graphsData[key]['links'][index]];
+    // }
   }
 
   return newGraphIds;
@@ -224,19 +230,20 @@ function initWebs(data) {
   websData = data['Web'] || [];
   let newWebIds = [];
   for (let key in websData) {
-    webs[key] = websData[key];
+    let newWeb = new Web(websData[key]);
+    webs[key] = newWeb;
     webIds.push(key);
     newWebIds.push(key);
 
-    webs[key]['graph'] = graphs[webs[key]['graph']];
+    // newWeb.graph.value = graphs[webs[key]['graph']];
 
-    for (let index in websData[key]['vertices']) {
-      webs[key]['vertices'][index] = vertices[websData[key]['vertices'][index]];
-    }
+    // for (let index in websData[key]['vertices']) {
+    //   webs[key]['vertices'][index] = vertices[websData[key]['vertices'][index]];
+    // }
 
-    for (let index in websData[key]['edges']) {
-      webs[key]['edges'][index] = edges[websData[key]['edges'][index]];
-    }
+    // for (let index in websData[key]['edges']) {
+    //   webs[key]['edges'][index] = edges[websData[key]['edges'][index]];
+    // }
   }
 
   return newWebIds;
@@ -350,7 +357,7 @@ function draw() {
   vData.selectAll('circle')
     .attr('cx', function(d){ return vertices[d]['screen']['x']; })
     .attr('cy', function(d){ return vertices[d]['screen']['y']; })
-    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'])) * 2 / fS; })
+    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data'].value['size'])) * 2 / fS; })
     .attr('stroke-width', (2 / fS) + 'px')
     .attr('fill', function(d){ return vertices[d]['screen']['color'] || 'gray'; });
   vData.selectAll('text')

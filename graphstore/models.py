@@ -487,7 +487,10 @@ class ListField(MongoField):
     return dirty_fields
 
   def serialize(self, **kwargs):
-    return [item.serialize(**kwargs) for item in self.value]
+    if isinstance(self.field_class, ModelField):
+      return [item.serialize(**kwargs)['id'] for item in self.value]
+    else:
+      return [item.serialize(**kwargs) for item in self.value]
 
   def deserialize(self, data):
     if isinstance(self.field_class, ModelField):

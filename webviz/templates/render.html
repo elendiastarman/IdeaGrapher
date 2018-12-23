@@ -24,6 +24,6 @@
 
 {% block scripts %}
     {{ super() }}
-    <script type="text/javascript" src="{{ url_for('static', filename='render.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='models_and_fields.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='render.js') }}"></script>
 {% endblock %}
