@@ -134,8 +134,6 @@ function initVertices(data) {
     vertices[key] = newVertex;
     vertexIds.push(key);
     newVertexIds.push(key);
-
-    // vertices[key]['node'] = nodes[verticesData[key]['node']];
   }
 
   vertexIds.forEach(function(v1id) {
@@ -213,14 +211,6 @@ function initGraphs(data) {
     graphs[key] = newGraph;
     graphIds.push(key);
     newGraphIds.push(key);
-
-    // for (let index in graphsData[key]['nodes']) {
-    //   graphs[key]['nodes'][index] = nodes[graphsData[key]['nodes'][index]];
-    // }
-
-    // for (let index in graphsData[key]['links']) {
-    //   graphs[key]['links'][index] = links[graphsData[key]['links'][index]];
-    // }
   }
 
   return newGraphIds;
@@ -234,16 +224,6 @@ function initWebs(data) {
     webs[key] = newWeb;
     webIds.push(key);
     newWebIds.push(key);
-
-    // newWeb.graph.value = graphs[webs[key]['graph']];
-
-    // for (let index in websData[key]['vertices']) {
-    //   webs[key]['vertices'][index] = vertices[websData[key]['vertices'][index]];
-    // }
-
-    // for (let index in websData[key]['edges']) {
-    //   webs[key]['edges'][index] = edges[websData[key]['edges'][index]];
-    // }
   }
 
   return newWebIds;
@@ -357,7 +337,7 @@ function draw() {
   vData.selectAll('circle')
     .attr('cx', function(d){ return vertices[d]['screen']['x']; })
     .attr('cy', function(d){ return vertices[d]['screen']['y']; })
-    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data'].value['size'])) * 2 / fS; })
+    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'])) * 2 / fS; })
     .attr('stroke-width', (2 / fS) + 'px')
     .attr('fill', function(d){ return vertices[d]['screen']['color'] || 'gray'; });
   vData.selectAll('text')
@@ -382,27 +362,11 @@ function draw() {
 }
 
 function populateDataPane(element) {
-  console.log('populateDataPane', element);
   dataPaneContent.selectAll('*').remove();
 
   if (element != null) {
-    dataPaneContent.append('p').html('Vertex: ' + element['id']);
-    dataPaneContent.append('p').html('<strong>screen</strong>');
-    dataPaneContent.append('textarea')
-      .attr('id', 'vertex-screen')
-      .html(JSON.stringify(element['screen']));
+    element._populateContainer(dataPaneContent);
   }
-
-  dataPaneContent.selectAll('*').on('focusout', applyDataChanges)
-}
-
-function applyDataChanges() {
-  console.log('applyDataChanges');
-  element = selected[0]['element'];
-  let newValue = JSON.parse(dataPaneContent.select('#vertex-screen').property('value'));
-  console.log('newValue:', newValue);
-  element['screen'] = newValue;
-  console.log('applyDataChanges', element);
 }
 
 doPhysics = false;

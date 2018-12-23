@@ -11,6 +11,7 @@ class BaseField {
     this.nullable = params.nullable || false;
 
     this._value = this.default;
+    this._input = null;
   }
 
   serialize() {
@@ -36,8 +37,20 @@ class BaseField {
     }
   }
 
-  inputBox() {
-    throw new Error("Not yet implemented.");
+  addInput(container, editable) {
+    throw new Error("Input method not yet implemented!");
+  }
+
+  applyChanges() {
+    throw new Error("Method for applying changes not yet implemented!");
+  }
+
+  applyDefaultInputStyling(editable) {
+    let tempFunc = function(item){ return function(){ item.applyChanges(); } };
+    this._input
+      .style('width', '95%')
+      .property('disabled', !editable)
+      .on('focusout', tempFunc(this));
   }
 }
 
@@ -59,6 +72,17 @@ class StringField extends BaseField {
     } else if (this.max_length != null && value.length > this.max_length) {
       throw new Error("Value '" + value + "' is too long; it must be no more than " + this.max_length + " characters long.");
     }
+  }
+
+  addInput(container, editable) {
+    this._input = container.append('input')
+      .property('value', this.value)
+      .style('width', '90%');
+    this.applyDefaultInputStyling(editable);
+  }
+
+  applyChanges() {
+    this.value = this._input.property('value');
   }
 }
 
@@ -187,6 +211,16 @@ class ModelField extends BaseField {
     this.validate(newValue);
     this._value = newValue;
   }
+
+  addInput(container, editable) {
+    this._input = container.append('input')
+      .property('value', this.value.id);
+    this.applyDefaultInputStyling(editable);
+  }
+
+  applyChanges() {
+    this.value = this._input.property('value');
+  }
 }
 
 class DictField extends BaseField {
@@ -196,27 +230,34 @@ class DictField extends BaseField {
 
     let proxy = new Proxy(this, {
       get(target, name, receiver) {
-        if (!Reflect.has(target, name)) {
-          if (!Reflect.has(target._value, name)) {
-            // console.log("Getting non-existent property '" + name + "'");
-            return undefined;
-          }
-          return Reflect.get(target._value, name, receiver);
+        if (Reflect.has(target, name)) {
+          return Reflect.get(target, name, receiver);
         }
-        return Reflect.get(target, name, receiver);
+
+        return target._value[name];
       },
       set(target, name, value, receiver) {
-        if (!Reflect.has(target, name)) {
-          if (!Reflect.has(target._value, name)) {
-            // console.log(`Setting non-existent property '${name}', initial value: ${value}`);
-          }
-          return Reflect.set(target._value, name, value, receiver);
+        if (Reflect.has(target, name)) {
+          return Reflect.set(target, name, value, receiver);
         }
-        return Reflect.set(target, name, value, receiver);
+
+        target._value[name] = value;
+        return target._value[name];
       }
     })
 
     return proxy;
+  }
+
+  addInput(container, editable) {
+    this._input = container.append('textarea')
+      .property('value', JSON.stringify(this.value, null, 2))
+      .style('height', '100px');
+    this.applyDefaultInputStyling(editable);
+  }
+
+  applyChanges() {
+    this._value = JSON.parse(this._input.property('value'));
   }
 }
 
@@ -253,9 +294,23 @@ class BaseModel {
     modelRefs[modelName][id] = this;
   }
 
-  _modelName() { throw new Error("Not yet implemented!") }
-  static _getClassFields() { throw new Error("Not yet implemented!") }
+  _modelName() { throw new Error("Model name not yet defined!") }
+  static _getClassFields() { throw new Error("Fields not yet defined!") }
   _getFields() { return modelMap[this.constructor.name]._getClassFields(); }
+  _getDataFields() { throw new Error("Data fields not yet defined!") }
+
+  _populateContainer(container) {
+    // assumes that container is a div within a foreignObject handled by D3
+    container.append('p').html(this._modelName() + ': ' + this.id);
+
+    let dataFields = this._getDataFields();
+    for (let index in dataFields) {
+      let [name, editable] = dataFields[index];
+      container.append('p').html('<strong>' + name + '</strong>');
+      this._fields[name].addInput(container, editable);
+    }
+
+  }
 }
 
 class Web extends BaseModel {
@@ -278,6 +333,13 @@ class Vertex extends BaseModel {
       "screen": new DictField({}),
       "data": new DictField({}),
     }
+  }
+  _getDataFields() {
+    return [
+      ['node', false],
+      ['screen', true],
+      ['data', false],
+    ]
   }
 }
 
@@ -350,16 +412,3 @@ let myWeb = new Web(data["Web"]["5abdab31f10d9bfd190e5756"]);
 
 
 // myWeb.save();
-
-
-
-
-
-
-
-
-
-
-
-
-
