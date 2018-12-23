@@ -295,9 +295,9 @@ function dragPaneSplit() {
 
 function adjustFieldClip() {
   fieldClip.select('rect')
-    .attr('x', -fX - (width * paneSplitPercent) / fS / 2)
+    .attr('x', -fX - width * paneSplitPercent / fS / 2)
     .attr('y', -fY - height / fS / 2)
-    .attr('width', width * paneSplitPercent / fS - 1)
+    .attr('width', width * paneSplitPercent / fS)
     .attr('height', height / fS);
 }
 
