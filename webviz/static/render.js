@@ -985,7 +985,7 @@ function createNode() {
   });
 }
 
-function highlightClosestVertex() {
+function selectClosestVertex() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
   if (pane == 'data') {
     return;
@@ -1001,7 +1001,6 @@ function highlightClosestVertex() {
   let i = 0;
   while (i < selected.length) {
     if (selected[i]['type'] == 'vertex') {
-      selected[i]['element']['screen']['color'] = 'gray';
       selected.splice(i, 1);
     } else {
       i += 1;
@@ -1009,7 +1008,6 @@ function highlightClosestVertex() {
   }
 
   if (targets.length > 1) {
-    targets[0][0]['screen']['color'] = 'white';
     selected.push({'type': 'vertex', 'element': targets[0][0]});
   }
 
@@ -1021,7 +1019,7 @@ function multiClick() {
   let targets = identifyTargets();
 
   if (mouseState['clicks'] == 1) {
-    highlightClosestVertex();
+    selectClosestVertex();
   } else if (mouseState['clicks'] == 2) {
     createNode();
   }
