@@ -5,6 +5,17 @@ if (typeof Proxy == "undefined") {
 
 var modelRefs = {};
 
+var dirtyModels = [];
+var dirtyModelIds = [];
+function addDirtyModel(model) {
+  if (dirtyModelIds.count(model.id) > 0) {
+    return;
+  }
+
+  dirtyModels.push(model);
+  dirtyModelIds.push(model.id);
+}
+
 class BaseField {
   constructor(params) {
     this.default = params.default || null;
