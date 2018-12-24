@@ -399,14 +399,15 @@ function step() {
 function saveWebname() {
   let inputName = $('#webname').val();
   web = webs[webIds[0]];
-  if (inputName != web['name']) {
-    web['name'] = inputName;
+  if (inputName != web['name'].value) {
+    console.log(inputName, web['name'].value);
+    web['name'].value = inputName;
 
     $.ajax('/updatedata', {
       method: 'PUT',
       data: {'data': JSON.stringify([{
         '$model': 'web',
-        '$id': web['id'],
+        '$id': web.id,
         '$update': [{
           '$action': 'overwrite',
           '$type': 'string',
