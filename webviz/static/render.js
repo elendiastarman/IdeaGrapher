@@ -881,9 +881,9 @@ function identifyTargets(x, y, max_dist, types) {
   return targets
 }
 
-function generateTempId() {
-  return "TEMP" + Math.random().toString().slice(2);
-}
+// function generateTempId() {
+//   return "TEMP" + Math.random().toString().slice(2);
+// }
 
 function createNode() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[1][0][0]);
@@ -891,99 +891,18 @@ function createNode() {
     return;
   }
 
-  let tempNodeId = generateTempId();
-  let tempNode = {'subgraphs': [], 'data': {'size': 10}};
-  nodeIds.push(tempNodeId);
-  nodes[tempNodeId] = tempNode;
+  let newNode = new Node(Node._defaultData({'data': {'size': 10}}), false);
+  console.log(newNode);
+  let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id}), false);
+  graphs[graphIds[0]]['nodes'].push(newNode.id);
+  webs[webIds[0]]['vertices'].push(newVertex.id);
 
-  let tempVertexId = generateTempId();
-  let tempVertex = {'screen': {'x': x, 'y': y, 'xv': 0, 'yv': 0}, 'node': tempNode, 'data': {}};
-  vertexIds.push(tempVertexId);
-  vertices[tempVertexId] = tempVertex;
-
-  graphs[graphIds[0]]['nodes'].push(tempNode);
-  webs[webIds[0]]['vertices'].push(tempVertex);
+  nodeIds.push(newNode.id);
+  nodes[newNode.id] = newNode;
+  vertexIds.push(newVertex.id);
+  vertices[newVertex.id] = newVertex;
 
   drawSync();
-
-  $.ajax('/updatedata', {
-    method: 'PUT',
-    data: {'data': JSON.stringify([
-      {
-        '$model': 'node',
-        '$id': tempNodeId,
-        '$create': [{
-          '$action': 'overwrite',
-          '$type': 'dict',
-          '$key': 'data',
-          '$value': tempNode['data'],
-        }],
-      },
-      {
-        '$model': 'vertex',
-        '$id': tempVertexId,
-        '$create': [
-          {
-            '$action': 'overwrite',
-            '$type': 'dict',
-            '$key': 'screen',
-            '$value': tempVertex['screen'],
-          },
-          {
-            '$action': 'overwrite',
-            '$type': 'model',
-            '$key': 'node',
-            '$value': {'$model': 'node', '$id': tempNodeId},
-          },
-        ],
-      },
-      {
-        '$model': 'graph',
-        '$id': graphIds[0],
-        '$update': [{
-          '$action': 'append',
-          '$type': 'model',
-          '$key': 'nodes',
-          '$value': {'$model': 'node', '$id': tempNodeId},
-        }],
-      },
-      {
-        '$model': 'web',
-        '$id': webIds[0],
-        '$update': [{
-          '$action': 'append',
-          '$type': 'model',
-          '$key': 'vertices',
-          '$value': {'$model': 'vertex', '$id': tempVertexId},
-        }],
-      },
-    ])},
-    success: function(responseData) {
-      console.log('SUCCESS ', responseData);
-      let parsed;
-
-      // Fix temporary node id
-      parsed = JSON.parse(responseData['return_data'][0]);
-      initNodes(parsed);
-      delete nodes[tempNodeId];
-      nodeIds.splice(nodeIds.indexOf(tempNodeId), 1);
-
-      // Fix temporary vertex id
-      parsed = JSON.parse(responseData['return_data'][1]);
-      let newVertexIds = initVertices(parsed);
-      delete vertices[tempVertexId];
-      vertexIds.splice(vertexIds.indexOf(tempVertexId), 1);
-      fieldPane.select('#' + tempVertexId).attr('id', newVertexIds[0]);
-
-      graphs[graphIds[0]]['nodes'].splice(graphs[graphIds[0]]['nodes'].indexOf(tempNodeId), 1);
-      webs[webIds[0]]['vertices'].splice(webs[webIds[0]]['vertices'].indexOf(tempVertexId), 1);
-
-      drawSync();
-    },
-    error: function(responseData) {
-      console.log('ERROR ', responseData);
-    },
-  });
 }
 
 function selectClosestVertex() {

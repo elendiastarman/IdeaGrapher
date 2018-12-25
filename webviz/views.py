@@ -1,5 +1,6 @@
 from flask import request, session, render_template, redirect, abort, url_for, jsonify
 from graphstore.models import Graph, Link, Node
+from bson import ObjectId
 
 from . import app
 from .models import Account, Web, Edge, Vertex, Rule, Prop, Camera
@@ -10,9 +11,9 @@ import json
 import traceback
 
 MODEL_MAP = {
-  'graph': Graph, 'link': Link, 'node': Node,
-  'web': Web, 'edge': Edge, 'vertex': Vertex,
-  'rule': Rule, 'prop': Prop, 'camera': Camera,
+  'Graph': Graph, 'Link': Link, 'Node': Node,
+  'Web': Web, 'Edge': Edge, 'Vertex': Vertex,
+  'Rule': Rule, 'Prop': Prop, 'Camera': Camera,
 }
 
 
@@ -156,17 +157,29 @@ def login_view(**kwargs):
   return render_template('login.html', **context)
 
 
-def resolve_typed_value(item, temp_id_map):
+def resolve_model(model_name, model_id, id_map):
+  if model_id in id_map:
+    element = id_map[model_id]
+  else:
+    inner_model = MODEL_MAP[model_name]
+    element = inner_model.get_by_id(model_id)
+
+  return element
+
+
+def resolve_typed_value(item, id_map):
   element = None
 
   if item['$type'] == 'model':
-    model_id = item['$value']['$id']
+    element = resolve_model(item['$value']['$model'], item['$value']['$id'], id_map)
 
-    if model_id in temp_id_map:
-      element = temp_id_map[model_id]
+  elif item['$type'].startswith('list'):
+    inner_type = item['$type'].split('/')[1]
+
+    if inner_type == 'model':
+      element = [resolve_model(inner_item['$model'], inner_item['$id'], id_map) for inner_item in item['$value']]
     else:
-      inner_model = MODEL_MAP[item['$value']['$model']]
-      element = inner_model.get_by_id(item['$value']['$id'])
+      element = item['$value']
 
   else:
     element = item['$value']
@@ -174,12 +187,12 @@ def resolve_typed_value(item, temp_id_map):
   return element
 
 
-def create_model(data, temp_id_map):
+def create_model(data, id_map):
   model = MODEL_MAP[data['$model']]
   create_data = dict()
 
   for item in data['$create']:
-    element = resolve_typed_value(item, temp_id_map)
+    element = resolve_typed_value(item, id_map)
 
     if item['$action'] == 'overwrite':
       create_data[item['$key']] = element
@@ -189,17 +202,17 @@ def create_model(data, temp_id_map):
 
   instance = model(**create_data)
   instance.save()
-  temp_id_map[data['$id']] = instance
+  id_map[data['$id']] = instance
   print(instance.json())
   return instance.json()
 
 
-def update_model(data, temp_id_map):
+def update_model(data, id_map):
   model = MODEL_MAP[data['$model']]
   instance = model.get_by_id(data['$id'])
 
   for item in data['$update']:
-    element = resolve_typed_value(item, temp_id_map)
+    element = resolve_typed_value(item, id_map)
 
     if item['$action'] == 'overwrite':
       instance.__setattr__(item['$key'], element)
@@ -210,7 +223,7 @@ def update_model(data, temp_id_map):
   instance.save()
 
 
-def delete_model(data, temp_id_map):
+def delete_model(data, id_map):
   model = MODEL_MAP[data['$model']]
   instance = model.get_by_id(data['$id'])
   print(instance.json())
@@ -228,7 +241,7 @@ def update_data(**kwargs):
   import pprint
   data = json.loads(request.form.to_dict().get('data'))
   return_data = []
-  temp_id_map = {}
+  id_map = {}
 
   print()
   for datum in data:
@@ -236,13 +249,13 @@ def update_data(**kwargs):
 
     try:
       if '$create' in datum:
-        ret = create_model(datum, temp_id_map)
+        ret = create_model(datum, id_map)
       elif '$update' in datum:
-        ret = update_model(datum, temp_id_map)
+        ret = update_model(datum, id_map)
       elif '$delete' in datum:
-        ret = delete_model(datum, temp_id_map)
+        ret = delete_model(datum, id_map)
 
-      return_data.append(ret)
+      return_data.append({'data': ret})
 
     except Exception as e:
       traceback.print_exc()
@@ -250,6 +263,12 @@ def update_data(**kwargs):
 
   print()
   return jsonify({'success': 200, 'return_data': return_data})
+
+
+@app.route('/restockobjectids', methods=['GET'])
+def restock_object_ids(**kwargs):
+  num = int(request.args.get('count')) or 100
+  return jsonify([str(ObjectId()) for _ in range(num)])
 
 
 @app.route('/logout')

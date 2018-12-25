@@ -3,19 +3,6 @@ if (typeof Proxy == "undefined") {
     throw new Error("This browser doesn't support Proxy.");
 }
 
-var modelRefs = {};
-
-var dirtyModels = [];
-var dirtyModelIds = [];
-function addDirtyModel(model) {
-  if (dirtyModelIds.count(model.id) > 0) {
-    return;
-  }
-
-  dirtyModels.push(model);
-  dirtyModelIds.push(model.id);
-}
-
 class BaseField {
   constructor(params) {
     this.default = params.default || null;
@@ -23,6 +10,11 @@ class BaseField {
 
     this._value = this.default;
     this._input = null;
+    this._dirty = false;
+  }
+
+  _getType() {
+    throw new Error("Field type not yet defined!");
   }
 
   serialize() {
@@ -30,16 +22,30 @@ class BaseField {
   }
 
   deserialize(data) {
-    return data;
+    return data || this.default;
   }
 
-  get value(){
+  get value() {
     return this._value
   }
 
-  set value(newValue){
+  set value(newValue) {
     this.validate(newValue);
+    console.log('newValue:', newValue);
     this._value = newValue;
+    this._dirty = true;
+  }
+
+  isDirty() {
+    if (this._dirty) {
+      return [true, this.serialize()];
+    } else {
+      return [false, null];
+    }
+  }
+
+  markClean() {
+    this._dirty = false;
   }
 
   validate(value) {
@@ -73,8 +79,14 @@ class StringField extends BaseField {
     this.placeholder = params.placeholder || "";
   }
 
+  _getType() {
+    return "string";
+  }
+
   validate(value) {
     super.validate(value);
+
+    if (value == null) { return; }
 
     if (typeof value !== "string") {
       throw new Error("Value '" + value + "' is not a string.");
@@ -104,6 +116,10 @@ class IntegerField extends BaseField {
     this.max = params.max || null;
   }
 
+  _getType() {
+    return "integer";
+  }
+
   validate(value) {
     super.validate(value);
 
@@ -128,6 +144,10 @@ class ListField extends BaseField {
     this.max_length = params.max_length || null;
   }
 
+  _getType() {
+    return 'list/' + this.fieldClass.prototype._getType();
+  }
+
   validate(value) {
     super.validate(value);
 
@@ -142,7 +162,11 @@ class ListField extends BaseField {
     let values = [];
 
     for (let index = 0; index < this.value.length; index += 1) {
-      values.push(this.value[index].serialize());
+      if (this.fieldClass.prototype._getType() == 'model') {
+        values.push(this._value[index].id);
+      } else {
+        values.push(this._value[index].serialize());
+      }
     }
 
     return values;
@@ -151,25 +175,28 @@ class ListField extends BaseField {
   deserialize(data) {
     let values = [];
 
-    for (let index = 0; index < data.length; index += 1) {
-      let field = new this.fieldClass(...this.fieldArgs);
-      values.push(field.deserialize(data[index]));
+    if (data) {
+      for (let index in data) {
+        let field = new this.fieldClass(...this.fieldArgs);
+        values.push(field.deserialize(data[index]));
+      }
     }
 
     return values;
   }
 
   push(...values) {
-    for (let index = 0; index < values.length; index += 1) {
-      let field = this.fieldClass(...this.fieldArgs);
-      field.value = values[index];
-      this._value.push(field);
+    for (let index in values) {
+      let field = new this.fieldClass(...this.fieldArgs);
+      this._value.push(field.deserialize(values[index]));
     }
 
+    this._dirty = true;
     return this._value.length;
   }
 
   pop() {
+    this._dirty = true;
     return this._value.pop();
   }
 }
@@ -184,7 +211,7 @@ class ModelField extends BaseField {
       throw new Error("You dummy, you forgot to update modelMap to include" + this.modelName + ".");
     }
 
-    let fields = model._getClassFields();
+    let fields = model.prototype._getFields();
 
     for (let field in fields) {
       Object.defineProperty(this, field, {
@@ -192,6 +219,10 @@ class ModelField extends BaseField {
         "get": () => this._value[field],
       })
     }
+  }
+
+  _getType() {
+    return "model";
   }
 
   serialize() {
@@ -220,6 +251,7 @@ class ModelField extends BaseField {
 
   set value(newValue) {
     this.validate(newValue);
+    this._dirty = true;
     this._value = newValue;
   }
 
@@ -249,15 +281,24 @@ class DictField extends BaseField {
       },
       set(target, name, value, receiver) {
         if (Reflect.has(target, name)) {
+          if (name == '_value') {
+            target._dirty = true;
+          }
           return Reflect.set(target, name, value, receiver);
         }
 
         target._value[name] = value;
+        console.log('name:', name);
+        target._dirty = true;
         return target._value[name];
       }
     })
 
     return proxy;
+  }
+
+  _getType() {
+    return "dict";
   }
 
   addInput(container, editable) {
@@ -274,7 +315,8 @@ class DictField extends BaseField {
 
 
 class BaseModel {
-  constructor(data) {
+  constructor(data, deserializing) {
+    console.log(data, deserializing);
     let modelName = this._modelName();
     if (typeof data == "string") {
       let model = modelRefs[modelName][data];
@@ -303,11 +345,18 @@ class BaseModel {
     }
 
     modelRefs[modelName][id] = this;
+
+    if (deserializing === false) {
+      addDirtyModel(this, 'create');
+    } else {
+      this._markClean();
+    }
   }
 
+  static _defaultData() { throw new Error("Default data not yet defined!") }
+
   _modelName() { throw new Error("Model name not yet defined!") }
-  static _getClassFields() { throw new Error("Fields not yet defined!") }
-  _getFields() { return modelMap[this.constructor.name]._getClassFields(); }
+  _getFields() { throw new Error("Fields not yet defined!") }
   _getDataFields() { throw new Error("Data fields not yet defined!") }
 
   _populateContainer(container) {
@@ -320,15 +369,35 @@ class BaseModel {
       container.append('p').html('<strong>' + name + '</strong>');
       this._fields[name].addInput(container, editable);
     }
+  }
 
+  _isDirty() {
+    let dirtyData = {};
+    let dirtyBool = false;
+
+    for (let field in this._fields) {
+      let [dirty, value] = this._fields[field].isDirty();
+
+      if (dirty) {
+        dirtyData[field] = value;
+        dirtyBool = true;
+      }
+    }
+
+    return [dirtyBool, dirtyData];
+  }
+  _markClean() {
+    for (let field in this._fields) {
+      this._fields[field].markClean();
+    }
   }
 }
 
 class Web extends BaseModel {
   _modelName() { return "Web"; }
-  static _getClassFields() {
+  _getFields() {
     return {
-      "name": new StringField({default: "", placeholder: "Untitled"}),
+      "name": new StringField({nullable: true, placeholder: "Untitled"}),
       "graph": new ModelField("Graph", {}),
       "vertices": new ListField(ModelField, ["Vertex", {}], {}),
     }
@@ -337,7 +406,8 @@ class Web extends BaseModel {
 
 class Vertex extends BaseModel {
   _modelName() { return "Vertex"; }
-  static _getClassFields() {
+
+  _getFields() {
     return {
       "node": new ModelField("Node", {}),
       "subwebs": new ListField(ModelField, ["Web", {}], {}),
@@ -345,6 +415,7 @@ class Vertex extends BaseModel {
       "data": new DictField({}),
     }
   }
+
   _getDataFields() {
     return [
       ['node', false],
@@ -352,11 +423,35 @@ class Vertex extends BaseModel {
       ['data', false],
     ]
   }
+
+  static _defaultData(extraData) {
+    let data = {
+      'id': objectIdStockpile.pop(),
+      'screen': {
+        'x': 0, 'y': 0, 'xv': 0, 'yv': 0,
+        'color': 'gray',
+      }
+    }
+
+    if (extraData) {
+      if (extraData['screen']) {
+        data['screen'] = Object.assign({}, data['screen'], extraData['screen']);
+        delete extraData['screen'];
+      }
+      if (extraData['data']) {
+        data['data'] = Object.assign({}, data['data'], extraData['data']);
+        delete extraData['data'];
+      }
+      data = Object.assign({}, data, extraData);
+    }
+
+    return data;
+  }
 }
 
 class Graph extends BaseModel {
   _modelName() { return "Graph"; }
-  static _getClassFields() {
+  _getFields() {
     return {
       "nodes": new ListField(ModelField, ["Node", {}], {}),
       // "links": new ListField(ModelField, ["Link", {}], {}),
@@ -366,15 +461,38 @@ class Graph extends BaseModel {
 
 class Node extends BaseModel {
   _modelName() { return "Node"; }
-  static _getClassFields() {
+
+  _getFields() {
     return {
       "subgraphs": new ListField(ModelField, ["Graph", {}], {}),
       "data": new DictField({}),
     }
   }
+
+  _getDataFields() {
+    return [
+      ['data', true],
+    ]
+  }
+
+  static _defaultData(extraData) {
+    let data = {
+      'id': objectIdStockpile.pop(),
+    }
+
+    if (extraData) {
+      if (extraData['data']) {
+        data['data'] = Object.assign({}, data['data'], extraData['data']);
+        delete extraData['data'];
+      }
+      data = Object.assign({}, data, extraData);
+    }
+
+    return data;
+  }
 }
 
-
+var modelRefs = {};
 var modelMap = {
   "Web": Web,
   "Vertex": Vertex,
@@ -382,6 +500,171 @@ var modelMap = {
   "Node": Node,
   // "Link": Link,
 }
+var dependencyOrder = ['Node', 'Vertex', 'Graph', 'Web'];
 for (let modelName in modelMap) {
   modelRefs[modelName] = {};
 }
+
+var minObjectIdAmount = 100;
+var objectIdStockpile = [];
+function restockObjectIds(num) {
+  num = num || 100;
+  $.ajax('/restockobjectids?count=' + num, {
+    method: 'GET',
+    success: function(responseData) {
+      console.log('SUCCESS ', responseData.length);
+      objectIdStockpile = responseData.concat(objectIdStockpile);
+    },
+    error: function(responseData) {
+      console.log('ERROR ', responseData);
+    },
+  });
+}
+
+var dirtyModels = [];
+var dirtyModelIds = [];
+function addDirtyModel(model, action) {
+  if (dirtyModelIds.indexOf(model.id) > -1) {
+    return;
+  }
+
+  dirtyModels.push([model, action]);
+  dirtyModelIds.push(model.id);
+}
+
+function saveDirtyModels() {
+  if (objectIdStockpile.length < minObjectIdAmount) {
+    restockObjectIds(2 * (minObjectIdAmount - objectIdStockpile.length));
+  }
+
+  let modelCommands = [];
+
+  for (let index in dirtyModelIds) {
+    let [model, action] = dirtyModels[index];
+
+    if (action == 'create') {
+      let createData = [];
+
+      for (let name in model._getFields()) {
+        let field = model._fields[name];
+        let datum = {
+          '$action': 'overwrite',
+          '$type': field._getType(),
+          '$key': name,
+        };
+
+        if (datum['$type'] == 'model') {
+          datum['$value'] = {'$model': '', '$id': field.serialize()};
+        } else {
+          datum['$value'] = field.serialize();
+        }
+
+        createData.push(datum);
+      }
+
+      modelCommands.push({
+        '$model': model._modelName(),
+        '$id': model.id,
+        '$create': createData,
+      });
+
+    } else if (action == 'delete') {
+      modelCommands.push({
+        '$model': model._modelName(),
+        '$id': model.id,
+        '$delete': true,
+      });
+    }
+  }
+
+  for (let index in dependencyOrder) {
+    let modelName = dependencyOrder[index];
+
+    for (let modelId in modelRefs[modelName]) {
+      if (dirtyModelIds.indexOf(modelId) > -1) {
+        continue;
+      }
+
+      let model = modelRefs[modelName][modelId];
+      let [dirty, value] = model._isDirty();
+
+      if (dirty) {
+        let updateData = [];
+        for (let key in value) {
+          let field = model._fields[key];
+          let datum = {
+            '$action': 'overwrite',
+            '$type': field._getType(),
+            '$key': key,
+          };
+
+          if (datum['$type'] == 'model') {
+            datum['$value'] = {'$model': field.modelName, '$id': field.serialize()};
+          } else if (datum['$type'].slice(0, 4) == 'list') {
+            let innerType = datum['$type'].slice(5);
+            let innerData = field.serialize();
+            datum['$value'] = [];
+            for (let innerIndex in innerData) {
+              if (innerType == 'model') {
+                console.log('field:', field);
+                datum['$value'].push({'$model': field.fieldArgs[0], '$id': innerData[innerIndex]});
+              } else {
+                datum['$value'].push(innerData[innerIndex].serialize());
+              }
+            }
+          } else {
+            datum['$value'] = field.serialize();
+          }
+
+          updateData.push(datum);
+        }
+
+        modelCommands.push({
+          '$model': model._modelName(),
+          '$id': model.id,
+          '$update': updateData,
+        });
+      }
+    }
+  }
+
+  if (modelCommands.length == 0) {
+    return;
+  }
+  console.log('commands:', modelCommands);
+
+  $.ajax('/updatedata', {
+    method: 'PUT',
+    data: {'data': JSON.stringify(modelCommands)},
+    success: function(responseData) {
+      console.log('SUCCESS ', responseData);
+      responseData = responseData['return_data'];
+
+      for (let index in responseData) {
+        if (responseData[index]['data'] !== undefined) {
+          let command = modelCommands[index];
+          let model = modelRefs[command['$model']][command['$id']];
+          model._markClean();
+
+          let dirtyModelIndex = dirtyModelIds.indexOf(command['$id']);
+          if (dirtyModelIndex > -1) {
+            dirtyModelIds.splice(dirtyModelIndex, 1);
+            dirtyModels.splice(dirtyModelIndex, 1);
+          }
+        } else {
+          console.log('Error acting on model:', responseData[index], modelCommands[index]);
+        }
+      }
+
+      drawSync();
+    },
+    error: function(responseData) {
+      console.log('ERROR ', responseData);
+    },
+  });
+}
+
+var saveTimer;
+var saveDelay = 1000;
+saveDirtyModels();
+saveTimer = setInterval(saveDirtyModels, saveDelay);

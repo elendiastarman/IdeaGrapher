@@ -160,6 +160,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
       self.get_or_make_ref(self.__class__, self._id, obj=self)
     else:
       changed = self.changed()
+      # import pprint; pprint.pprint(changed)
       if changed:
         result = self.CLIENT[self.DATABASE][self.COLLECTION].update_one({'_id': self._id}, {'$set': changed})
 
@@ -181,14 +182,17 @@ class MongoModel(object, metaclass=MongoModelMeta):
       if not isinstance(field, RawField):
         dirty = field.is_dirty()
         if dirty:
+
           if dirty is True:
             dirty_fields[field_name] = field.value
+
           elif isinstance(dirty, dict):
             for inner_field_name, inner_field_value in dirty.items():
-              dirty_fields[field_name + '.' + inner_field_name] = inner_field_value
+              dirty_fields[field_name + '.' + str(inner_field_name)] = inner_field_value
+
           elif isinstance(dirty, list):
             for inner_field_path in dirty:
-              dirty_fields[field_name + '.' + inner_field_path] = inner_field_value
+              dirty_fields[field_name + '.' + str(inner_field_path)] = inner_field_value
 
           else:
             raise ValueError("Don't know what to do when dirty is {} and has value '{}'.".format(type(dirty), dirty))
