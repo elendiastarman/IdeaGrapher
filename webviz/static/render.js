@@ -299,18 +299,12 @@ function drawSync() {
   vEnterGroup.append('circle')
     .attr('stroke', 'black');
   vEnterGroup.append('text')  // text: white outline
-    .text(function(d){ return vertices[d]['data']['shortname']})
-    .attr('x', function(d){ return vertices[d]['screen']['x']; })
-    .attr('y', function(d){ return vertices[d]['screen']['y']; })
     .attr('class', 'outer')
     .attr('text-anchor', 'middle')
     .attr('alignment-baseline', 'central')
     .style('fill', 'white')
     .style('stroke', 'black');
   vEnterGroup.append('text')  // text: black core
-    .text(function(d){ return vertices[d]['data']['shortname']})
-    .attr('x', function(d){ return vertices[d]['screen']['x']; })
-    .attr('y', function(d){ return vertices[d]['screen']['y']; })
     .attr('class', 'inner')
     .attr('text-anchor', 'middle')
     .attr('alignment-baseline', 'central')
@@ -343,6 +337,7 @@ function draw() {
   vData.selectAll('text')
     .attr('x', function(d){ return vertices[d]['screen']['x']; })
     .attr('y', function(d){ return vertices[d]['screen']['y']; })
+    .text(function(d){ return vertices[d]['data']['shortname']})
     .attr('font-size', 16 / fS );
   vData.selectAll('text.outer')
     .style('stroke-width', 5 / fS);

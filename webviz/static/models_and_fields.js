@@ -420,7 +420,7 @@ class Vertex extends BaseModel {
     return [
       ['node', false],
       ['screen', true],
-      ['data', false],
+      ['data', true],
     ]
   }
 
