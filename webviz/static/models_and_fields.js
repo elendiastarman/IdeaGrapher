@@ -62,9 +62,9 @@ class BaseField {
     throw new Error("Method for applying changes not yet implemented!");
   }
 
-  applyDefaultInputStyling(editable) {
-    let tempFunc = function(item){ return function(){ item.applyChanges(); } };
-    this._input
+  applyDefaultInputStyling(input, editable) {
+    let tempFunc = function(item){ return function(){ console.log('???'); item.applyChanges(); } };
+    input
       .style('width', '95%')
       .property('disabled', !editable)
       .on('focusout', tempFunc(this));
@@ -98,10 +98,10 @@ class StringField extends BaseField {
   }
 
   addInput(container, editable) {
-    this._input = container.append('input')
-      .property('value', this.value)
-      .style('width', '90%');
-    this.applyDefaultInputStyling(editable);
+    let input = container.append('input')
+      .property('value', this.value);
+    this.applyDefaultInputStyling(input, editable);
+    this._input = input;
   }
 
   applyChanges() {
@@ -256,9 +256,48 @@ class ModelField extends BaseField {
   }
 
   addInput(container, editable) {
-    this._input = container.append('input')
+    let temp = container.append('div');
+    this._input = temp;
+
+    let input = temp.append('input')
+      .attr('class', 'input')
       .property('value', this.value.id);
-    this.applyDefaultInputStyling(editable);
+    this.applyDefaultInputStyling(input, editable);
+
+    let randomId = Math.random().toString().slice(2);
+    let div = this._input.append('div')
+      .attr('id', randomId);
+
+    div.append('a')
+      .attr('id', 'show' + randomId)
+      .attr('href', '').text('show')
+      .property('hidden', false)
+      .on('click', function() {
+        d3.event.preventDefault();
+        d3.select('#show' + randomId).property('hidden', true);
+        d3.select('#hide' + randomId).property('hidden', false);
+        d3.select('#input' + randomId).property('hidden', false);
+      });
+
+    div.append('a')
+      .attr('id', 'hide' + randomId)
+      .attr('href', '').text('hide')
+      .property('hidden', true)
+      .on('click', function() {
+        d3.event.preventDefault();
+        d3.select('#show' + randomId).property('hidden', false);
+        d3.select('#hide' + randomId).property('hidden', true);
+        d3.select('#input' + randomId).property('hidden', true);
+      });
+
+    let inputDiv = div.append('div')
+      .attr('id', 'input' + randomId)
+      .style('padding', '5px')
+      .property('hidden', true);
+
+    inputDiv.append('hr');
+    this.value._populateContainer(inputDiv);
+    inputDiv.append('hr');
   }
 
   applyChanges() {
@@ -302,10 +341,11 @@ class DictField extends BaseField {
   }
 
   addInput(container, editable) {
-    this._input = container.append('textarea')
+    let input = container.append('textarea')
       .property('value', JSON.stringify(this.value, null, 2))
       .style('height', '100px');
-    this.applyDefaultInputStyling(editable);
+    this.applyDefaultInputStyling(input, editable);
+    this._input = input;
   }
 
   applyChanges() {
