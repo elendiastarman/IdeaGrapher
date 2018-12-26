@@ -199,6 +199,54 @@ class ListField extends BaseField {
     this._dirty = true;
     return this._value.pop();
   }
+
+  addInput(container, editable) {
+    let temp = container.append('div');
+    this._input = temp;
+
+    // let input = temp.append('input')
+    //   .attr('class', 'input')
+    //   .property('value', this.value.id);
+    // this.applyDefaultInputStyling(input, editable);
+
+    let randomId = Math.random().toString().slice(2);
+    let div = this._input.append('div')
+      .attr('id', randomId);
+
+    div.append('a')
+      .attr('id', 'show' + randomId)
+      .attr('href', '').text('show ' + this.value.length + ' items')
+      .property('hidden', false)
+      .on('click', function() {
+        d3.event.preventDefault();
+        d3.select('#show' + randomId).property('hidden', true);
+        d3.select('#hide' + randomId).property('hidden', false);
+        d3.select('#input' + randomId).property('hidden', false);
+      });
+
+    div.append('a')
+      .attr('id', 'hide' + randomId)
+      .attr('href', '').text('hide ' + this.value.length + ' items')
+      .property('hidden', true)
+      .on('click', function() {
+        d3.event.preventDefault();
+        d3.select('#show' + randomId).property('hidden', false);
+        d3.select('#hide' + randomId).property('hidden', true);
+        d3.select('#input' + randomId).property('hidden', true);
+      });
+
+    let inputDiv = div.append('div')
+      .attr('id', 'input' + randomId)
+      .style('padding', '5px')
+      .style('border-left', '2px solid black')
+      .property('hidden', true);
+
+    inputDiv.append('hr');
+    for (let index in this.value) {
+      this.value[index]._populateContainer(inputDiv);
+    }
+    inputDiv.append('hr');
+  }
 }
 
 class ModelField extends BaseField {
@@ -293,6 +341,7 @@ class ModelField extends BaseField {
     let inputDiv = div.append('div')
       .attr('id', 'input' + randomId)
       .style('padding', '5px')
+      .style('border-left', '2px solid black')
       .property('hidden', true);
 
     inputDiv.append('hr');
@@ -301,7 +350,7 @@ class ModelField extends BaseField {
   }
 
   applyChanges() {
-    this.value = this._input.property('value');
+    this.value = this._input.select('.input').property('value');
   }
 }
 
@@ -440,7 +489,17 @@ class Web extends BaseModel {
       "name": new StringField({nullable: true, placeholder: "Untitled"}),
       "graph": new ModelField("Graph", {}),
       "vertices": new ListField(ModelField, ["Vertex", {}], {}),
+      "data": new DictField({}),
     }
+  }
+
+  _getDataFields() {
+    return [
+      ['name', true],
+      ['graph', false],
+      ['vertices', false],
+      ['data', true],
+    ]
   }
 }
 
@@ -495,7 +554,15 @@ class Graph extends BaseModel {
     return {
       "nodes": new ListField(ModelField, ["Node", {}], {}),
       // "links": new ListField(ModelField, ["Link", {}], {}),
+      "data": new DictField({}),
     }
+  }
+
+  _getDataFields() {
+    return [
+      ['nodes', false],
+      ['data', true],
+    ]
   }
 }
 

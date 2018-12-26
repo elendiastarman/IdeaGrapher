@@ -5,7 +5,7 @@
 // console.log(Web);
 
 var svg = d3.select('#display');
-var fieldPane, fieldClip, dataPane, dataPaneContent, dataClip, paneSplitBorder, svgDefs;
+var fieldPane, fieldClip, dataPane, dataPaneContent, dataClip, paneSplitBorder, currentWeb;
 
 var width = 1200,
     height = 900,
@@ -47,13 +47,14 @@ function init() {
   startTime = Date.now();
 
   loadData();
+  currentWeb = webs[webIds[0]];
 
   svg.style('border', '1px solid black');
   svg.append('rect')
     .attr('id', 'background')
     .attr('fill', 'white');
 
-  svgDefs = svg.append('defs');
+  let svgDefs = svg.append('defs');
   fieldClip = svgDefs.append('clipPath').attr('id', 'fieldClip');
   fieldClip.append('rect');
   dataClip = svgDefs.append('clipPath').attr('id', 'dataClip');
@@ -76,12 +77,13 @@ function init() {
   dataPane.append('foreignObject')
     .attr('x', 5)
     .attr('y', 5);
-  dataPane.select('foreignObject').append('xhtml:div')
+  dataPaneContent = dataPane.select('foreignObject').append('xhtml:div')
     .attr('id', 'dataPaneContent')
-    .attr('xmlns', 'http://www.w3.org/1999/xhtml');
-  dataPaneContent = dataPane.select('#dataPaneContent');
+    .attr('xmlns', 'http://www.w3.org/1999/xhtml')
+    .style('overflow', 'auto');
 
   resizeSVG();
+  populateDataPane();
   drawSync();
 
   $('#start').on('click', start);
@@ -252,9 +254,6 @@ function resizeSVG() {
     .attr('height', height);
 
   paneSplitBorder.attr('height', height).attr('x', paneSplitPercent * width - 1);
-  dataPane.select('foreignObject')
-    .attr('width', width * (1 - paneSplitPercent))
-    .attr('height', height);
 
   adjustFieldClip();
   adjustDataClip();
@@ -282,9 +281,13 @@ function adjustFieldClip() {
 }
 
 function adjustDataClip() {
+  dataPane.select('foreignObject')
+    .attr('width', width * (1 - paneSplitPercent) - 10)
+    .attr('height', height - 10);
+  dataPaneContent
+    .style('width', '100%')
+    .style('height', '100%');
   dataClip.select('rect')
-    // .attr('x', -fX - width / fS / 2)
-    // .attr('y', -fY - height / fS / 2)
     .attr('x', 0)
     .attr('y', 0)
     .attr('width', width * (1 - paneSplitPercent) - 1)
@@ -331,7 +334,7 @@ function draw() {
   vData.selectAll('circle')
     .attr('cx', function(d){ return vertices[d]['screen']['x']; })
     .attr('cy', function(d){ return vertices[d]['screen']['y']; })
-    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'])) * 2 / fS; })
+    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'])) * 2; })
     .attr('stroke-width', (2 / fS) + 'px')
     .attr('fill', function(d){ return vertices[d]['screen']['color'] || 'gray'; });
   vData.selectAll('text')
@@ -361,6 +364,8 @@ function populateDataPane(element) {
 
   if (element != null) {
     element._populateContainer(dataPaneContent);
+  } else {
+    currentWeb._populateContainer(dataPaneContent);
   }
 }
 
