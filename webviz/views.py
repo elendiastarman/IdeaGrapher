@@ -189,7 +189,7 @@ def resolve_typed_value(item, id_map):
 
 def create_model(data, id_map):
   model = MODEL_MAP[data['$model']]
-  create_data = dict()
+  create_data = dict(_id=data['$id'])
 
   for item in data['$create']:
     element = resolve_typed_value(item, id_map)

@@ -661,7 +661,7 @@ function saveDirtyModels() {
         };
 
         if (datum['$type'] == 'model') {
-          datum['$value'] = {'$model': '', '$id': field.serialize()};
+          datum['$value'] = {'$model': field.modelName, '$id': field.serialize()};
         } else {
           datum['$value'] = field.serialize();
         }

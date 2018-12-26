@@ -154,15 +154,28 @@ class MongoModel(object, metaclass=MongoModelMeta):
     if errors:
       raise ValueError("Data error(s): {}".format(errors))
 
-    if not self._id:
-      result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(self.serialize(include='all'))
-      self._id = result.inserted_id
-      self.get_or_make_ref(self.__class__, self._id, obj=self)
-    else:
+    if isinstance(self._id, ObjectId):
       changed = self.changed()
+      # print('changed')
       # import pprint; pprint.pprint(changed)
+      # print()
       if changed:
         result = self.CLIENT[self.DATABASE][self.COLLECTION].update_one({'_id': self._id}, {'$set': changed})
+    else:
+      serialized = self.serialize(include='all')
+
+      if isinstance(self._id, str):
+        # print('id is str')
+        serialized['_id'] = ObjectId(self._id)
+      # print('serialized')
+      # import pprint; pprint.pprint(serialized)
+      # print()
+
+      result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(serialized)
+      self._id = result.inserted_id
+      self.get_or_make_ref(self.__class__, self._id, obj=self)
+
+    self.mark_clean()
 
   def validate(self):
     errors = {}
@@ -179,27 +192,33 @@ class MongoModel(object, metaclass=MongoModelMeta):
     dirty_fields = {}
 
     for field_name, field in self.fields.items():
-      if not isinstance(field, RawField):
-        dirty = field.is_dirty()
-        if dirty:
+      if isinstance(field, RawField):
+        continue
 
-          if dirty is True:
-            dirty_fields[field_name] = field.value
+      dirty = field.is_dirty()
+      if dirty:
 
-          elif isinstance(dirty, dict):
-            for inner_field_name, inner_field_value in dirty.items():
-              dirty_fields[field_name + '.' + str(inner_field_name)] = inner_field_value
+        if dirty is True:
+          dirty_fields[field_name] = field.serialize()
 
-          elif isinstance(dirty, list):
-            for inner_field_path in dirty:
-              dirty_fields[field_name + '.' + str(inner_field_path)] = inner_field_value
+        elif isinstance(dirty, dict):
+          for inner_field_name, inner_field_value in dirty.items():
+            dirty_fields[field_name + '.' + str(inner_field_name)] = inner_field_value
 
-          else:
-            raise ValueError("Don't know what to do when dirty is {} and has value '{}'.".format(type(dirty), dirty))
+        elif isinstance(dirty, list):
+          for inner_field_path in dirty:
+            dirty_fields[field_name + '.' + str(inner_field_path)] = inner_field_value
+
+        else:
+          raise ValueError("Don't know what to do when dirty is {} and has value '{}'.".format(type(dirty), dirty))
 
     return dirty_fields
 
   is_dirty = changed
+
+  def mark_clean(self):
+    for field_name, field in self.fields.items():
+      field.mark_clean()
 
   def serialize(self, **kwargs):
     include = kwargs.get('include', [])
@@ -331,6 +350,9 @@ class MongoField:
 
   def is_dirty(self):
     return self.dirty
+
+  def mark_clean(self):
+    self.dirty = False
 
   def serialize(self, **kwargs):
     return self.value
@@ -489,6 +511,10 @@ class ListField(MongoField):
           dirty_fields[str(index)] = element.id
 
     return dirty_fields
+
+  def mark_clean(self):
+    for index, element in enumerate(self.value):
+      element.mark_clean()
 
   def serialize(self, **kwargs):
     if isinstance(self.field_class, ModelField):
