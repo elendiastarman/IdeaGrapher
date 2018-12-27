@@ -70,6 +70,9 @@ function init() {
   fieldPane = svg.append('g')
     .attr('id', 'fieldPane')
     .style('clip-path', 'url(#fieldClip)');
+  fieldPane.append('g').attr('id', 'fieldVertices');
+  fieldPane.append('g').attr('id', 'fieldEdges');
+  fieldPane.append('g').attr('id', 'fieldHighlights');
 
   dataPane = svg.append('g')
     .attr('id', 'dataPane')
@@ -295,7 +298,7 @@ function adjustDataClip() {
 }
 
 function drawSync() {
-  let vData = fieldPane.selectAll('.vertex').data(vertexIds, function(d){ return d; });
+  let vData = fieldPane.select('#fieldVertices').selectAll('.vertex').data(vertexIds, function(d){ return d; });
   let vEnterGroup = vData.enter().append('g')
     .attr('class', 'vertex')
     .attr('id', function(d){ return d; });
@@ -316,7 +319,7 @@ function drawSync() {
 
   vData.exit().remove();
 
-  let eData = fieldPane.selectAll('.edge').data(edgeIds, function(d){ return d; });
+  let eData = fieldPane.select('#fieldEdges').selectAll('.edge').data(edgeIds, function(d){ return d; });
   let eGroup = eData.enter().append('g')
     .attr('class', 'edge')
     .attr('id', function(d){ return d; });
@@ -330,11 +333,11 @@ function drawSync() {
 }
 
 function draw() {
-  let vData = fieldPane.selectAll('.vertex').data(vertexIds, function(d){ return d; });
+  let vData = fieldPane.select('#fieldVertices').selectAll('.vertex').data(vertexIds, function(d){ return d; });
   vData.selectAll('circle')
     .attr('cx', function(d){ return vertices[d]['screen']['x']; })
     .attr('cy', function(d){ return vertices[d]['screen']['y']; })
-    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'])) * 2; })
+    .attr('r', function(d){ return Math.sqrt(parseFloat(vertices[d]['node']['data']['size'])); })
     .attr('stroke-width', (2 / fS) + 'px')
     .attr('fill', function(d){ return vertices[d]['screen']['color'] || 'gray'; });
   vData.selectAll('text')
@@ -347,7 +350,7 @@ function draw() {
   vData.selectAll('text.inner')
     .style('stroke-width', 1 / fS);
 
-  let eData = fieldPane.selectAll('.edge').data(edgeIds, function(d){ return d; });
+  let eData = fieldPane.select('#fieldEdges').selectAll('.edge').data(edgeIds, function(d){ return d; });
   eData.selectAll('line')
     .attr('x1', function(d){ return edges[d]['start_vertices'][0]['screen']['x']; })
     .attr('y1', function(d){ return edges[d]['start_vertices'][0]['screen']['y']; })
@@ -366,6 +369,13 @@ function populateDataPane(element) {
     element._populateContainer(dataPaneContent);
   } else {
     currentWeb._populateContainer(dataPaneContent);
+  }
+}
+
+function highlightSelected() {
+  for (let index in selected) {
+    let item = selected[index];
+    // if
   }
 }
 
@@ -400,7 +410,6 @@ function saveWebname() {
   let inputName = $('#webname').val();
   web = webs[webIds[0]];
   if (inputName != web['name'].value) {
-    console.log(inputName, web['name'].value);
     web['name'].value = inputName;
 
     $.ajax('/updatedata', {
@@ -881,10 +890,6 @@ function identifyTargets(x, y, max_dist, types) {
   return targets
 }
 
-// function generateTempId() {
-//   return "TEMP" + Math.random().toString().slice(2);
-// }
-
 function createNode() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[1][0][0]);
   if (pane != 'field') {
@@ -892,7 +897,6 @@ function createNode() {
   }
 
   let newNode = new Node(Node._defaultData({'data': {'size': 10}}), false);
-  console.log(newNode);
   let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id}), false);
   graphs[graphIds[0]]['nodes'].push(newNode.id);
   webs[webIds[0]]['vertices'].push(newVertex.id);
@@ -912,7 +916,7 @@ function selectClosestVertex() {
   }
 
   let max_dist = function(vert){
-    return vert['node']['data']['size'] / fS;
+    return Math.sqrt(vert['node']['data']['size']);
   };
 
   let targets = identifyTargets(x, y, max_dist, ['vertices']);
@@ -928,10 +932,11 @@ function selectClosestVertex() {
   }
 
   if (targets.length > 1) {
-    selected.push({'type': 'vertex', 'element': targets[0][0]});
+    selected.push(targets[0][0]);
   }
 
   populateDataPane(targets[0][0]);
+  highlightSelected();
   draw();
 }
 

@@ -31,7 +31,6 @@ class BaseField {
 
   set value(newValue) {
     this.validate(newValue);
-    console.log('newValue:', newValue);
     this._value = newValue;
     this._dirty = true;
   }
@@ -63,7 +62,7 @@ class BaseField {
   }
 
   applyDefaultInputStyling(input, editable) {
-    let tempFunc = function(item){ return function(){ console.log('???'); item.applyChanges(); } };
+    let tempFunc = function(item){ return function(){ item.applyChanges(); } };
     input
       .style('width', '95%')
       .property('disabled', !editable)
@@ -376,7 +375,6 @@ class DictField extends BaseField {
         }
 
         target._value[name] = value;
-        console.log('name:', name);
         target._dirty = true;
         return target._value[name];
       }
@@ -405,7 +403,7 @@ class DictField extends BaseField {
 
 class BaseModel {
   constructor(data, deserializing) {
-    console.log(data, deserializing);
+    // console.log(data, deserializing);
     let modelName = this._modelName();
     if (typeof data == "string") {
       let model = modelRefs[modelName][data];
@@ -475,6 +473,7 @@ class BaseModel {
 
     return [dirtyBool, dirtyData];
   }
+
   _markClean() {
     for (let field in this._fields) {
       this._fields[field].markClean();
@@ -713,7 +712,6 @@ function saveDirtyModels() {
             datum['$value'] = [];
             for (let innerIndex in innerData) {
               if (innerType == 'model') {
-                console.log('field:', field);
                 datum['$value'].push({'$model': field.fieldArgs[0], '$id': innerData[innerIndex]});
               } else {
                 datum['$value'].push(innerData[innerIndex].serialize());
