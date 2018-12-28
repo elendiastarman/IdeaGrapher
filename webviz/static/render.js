@@ -361,7 +361,7 @@ function draw() {
   //   .attr('y2', function(d){ return models['edges'][d]['end_vertices'][0]['screen']['y']; })
   //   .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
 
-  panes['viz']['pane'].attr('transform', 'translate(' + (vX * vScale + (width * paneSplitPercent) / 2) + ', ' + (vY * vScale + height / 2) + ') scale(' + (vScale) + ')');
+  panes['viz']['pane'].attr('transform', 'translate(' + (vX * vScale + width * paneSplitPercent / 2) + ', ' + (vY * vScale + height / 2) + ') scale(' + (vScale) + ')');
   panes['selected']['pane'].attr('transform', 'translate(' + (width * paneSplitPercent) + ', 0)');
 }
 
@@ -736,23 +736,32 @@ function respondToScrollInput() {
   if (!mouseState['scrolled']) {
     return false;
   }
+  if(mouseState["scroll"][1] == 0) {
+    return false;
+  }
 
   mouseState['scrolled'] = false;
 
-  let [pane, x, y] = normalizeMousePosition(mouseEvents[4][0]);
+  let [pane, mouseX, mouseY] = normalizeMousePosition(mouseEvents[4][0]);
   if (pane != 'viz') {
     return false;
   }
 
-  if(mouseState["scroll"][1] == 0) {
-    return false;
-  } else if(mouseState["scroll"][1] < 0) {
-    panes['viz']['scale'] *= 1.2;
-    return true;
+  let dispX, dispY, scaleFactor;
+
+  if(mouseState["scroll"][1] < 0) {
+    scaleFactor = 1.2;
   } else if (mouseState["scroll"][1] > 0) {
-    panes['viz']['scale'] /= 1.2;
-    return true;
+    scaleFactor = 1 / 1.2;
   }
+
+  dispX = panes['viz']['x'] + mouseX;
+  dispY = panes['viz']['y'] + mouseY;
+  panes['viz']['x'] += dispX * (1 / scaleFactor - 1);
+  panes['viz']['y'] += dispY * (1 / scaleFactor - 1);
+  panes['viz']['scale'] *= scaleFactor;
+
+  return true;
 }
 
 function executeContinuousTriggers() {
