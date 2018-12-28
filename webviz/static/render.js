@@ -787,6 +787,39 @@ function executeChangeTriggers(oldState, newState) {
   return changed;
 }
 
+function drag() {
+  if (temp['pan'] != undefined) {
+    return pan();
+  }
+  if (temp['dragVertex'] != undefined) {
+    return dragVertex();
+  }
+
+  let [pane, x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
+  if (pane != 'viz') {
+    return;
+  }
+
+  let vert_max_dist = function(vert){ return Math.sqrt(vert['node']['data']['size']); };
+
+  let targets = identifyTargets(x, y, [['vertices', vert_max_dist]]);
+
+  if (targets[0][0] == null) {
+    pan();
+  } else if (targets[0][0] instanceof Vertex) {
+    dragVertex(targets[0][0]);
+  }
+}
+
+function dragEnd() {
+  if (temp['pan'] != undefined) {
+    delete temp['pan'];
+  }
+  if (temp['dragVertex'] != undefined) {
+    delete temp['dragVertex'];
+  }
+}
+
 function pan() {
   if(mouseState["buttons"] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'viz') {
     if (temp['pan'] == null) {
@@ -802,9 +835,20 @@ function pan() {
   }
 }
 
-function panEnd() {
-  if (whichPane(mouseEvents[0][0][0])[0] == 'viz') {
-    delete temp['pan'];
+function dragVertex(vertex) {
+  if(mouseState["buttons"] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'viz') {
+    if (temp['dragVertex'] == null) {
+      temp['dragVertex'] = {
+        'startX': vertex['screen']['x'],
+        'startY': vertex['screen']['y'],
+        'vertex': vertex,
+      };
+    } else {
+      vertex = temp['dragVertex']['vertex'];
+    }
+
+    vertex['screen']['x'] = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / panes['viz']['scale'] + temp['dragVertex']['startX'];
+    vertex['screen']['y'] = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / panes['viz']['scale'] + temp['dragVertex']['startY'];
   }
 }
 
@@ -840,19 +884,23 @@ function normalizeMousePosition(event) {
   return [pane, x, y];
 }
 
-function identifyTargets(x, y, max_dist, types) {
+function identifyTargets(x, y, types) {
   let targets = [[null, Infinity]];
-  max_dist = max_dist || function(){ return Infinity; };
   types = types || [];
 
-  if (types.indexOf('vertices') > -1) {
-    for (let vert of models['vertices']) {
-      let vx = vert['screen']['x'];
-      let vy = vert['screen']['y'];
-      let dist = Math.sqrt((vx - x)**2 + (vy - y)**2);
+  for (let index in types) {
+    let [type, max_dist] = types[index];
+    max_dist = max_dist || function(){ return Infinity; };
 
-      if (dist < max_dist(vert)) {
-        targets.push([vert, dist]);
+    if (type == 'vertices') {
+      for (let vert of models['vertices']) {
+        let vx = vert['screen']['x'];
+        let vy = vert['screen']['y'];
+        let dist = Math.sqrt((vx - x)**2 + (vy - y)**2);
+
+        if (dist < max_dist(vert)) {
+          targets.push([vert, dist]);
+        }
       }
     }
   }
@@ -861,7 +909,7 @@ function identifyTargets(x, y, max_dist, types) {
   return targets
 }
 
-function createNode() {
+function createVertex() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[1][0][0]);
   if (pane != 'viz') {
     return;
@@ -880,7 +928,7 @@ function createNode() {
 
 function selectClosestVertex() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
-  if (pane == 'selected') {
+  if (pane != 'viz') {
     return;
   }
 
@@ -888,7 +936,7 @@ function selectClosestVertex() {
     return Math.sqrt(vert['node']['data']['size']);
   };
 
-  let targets = identifyTargets(x, y, max_dist, ['vertices']);
+  let targets = identifyTargets(x, y, [['vertices', max_dist]]);
 
   // deselect any currently selected vertices
   let i = 0;
@@ -910,20 +958,18 @@ function selectClosestVertex() {
 }
 
 function multiClick() {
-  let targets = identifyTargets();
-
   if (mouseState['clicks'] == 1) {
     selectClosestVertex();
   } else if (mouseState['clicks'] == 2) {
-    createNode();
+    createVertex();
   }
 }
 
 continuousTriggers = [
-  [/drag/, [pan]],
+  [/drag/, [drag]],
 ]
 
 changeTriggers = [
-  [/drag->hover/, [panEnd]],
+  [/drag->hover/, [dragEnd]],
   [/(click-)?down->click/, [multiClick]],
 ]
