@@ -598,6 +598,74 @@ class Node extends BaseModel {
   }
 }
 
+class ModelLookup {
+  constructor(model) {
+    this._model = model;
+    this.models = {};
+    this.modelIds = [];
+    this.newModelIds = [];
+  }
+
+  add(instance) {
+    let modelId = instance.id;
+    if (modelId == undefined) {
+      console.log(instance);
+      throw new Error('Model id is not defined in this data ^');
+    }
+
+    if (this.modelIds.indexOf(modelId) > -1) {
+      return this.models[modelId];
+    }
+
+    this.modelIds.push(modelId);
+    this.newModelIds.push(modelId);
+    this.models[modelId] = instance;
+
+    Object.defineProperty(this, modelId, {
+      "enumerable": true,
+      "get": () => this.models[modelId],
+    })
+
+    return this[modelId];
+  }
+
+  index(num) {
+    return this.models[this.modelIds[num]];
+  }
+
+  remove(modelId) {
+    let index = this.modelIds.indexOf(modelId);
+    if (index == -1) {
+      return 0;
+    }
+
+    this.modelIds.splice(index, 1);
+    delete this.models[modelId];
+    delete this[modelId];
+
+    return 1;
+  }
+
+  [Symbol.iterator]() {
+    return {
+      'current': 0,
+      'models': this.models,
+      'modelIds': this.modelIds,
+      next() {
+        if (this.current < this.modelIds.length) {
+          return {'done': false, 'value': this.models[this.modelIds[this.current++]]};
+        } else {
+          return {'done': true};
+        }
+      }
+    };
+  }
+
+  clearNew() {
+    this.newModelIds = [];
+  }
+}
+
 var modelRefs = {};
 var modelMap = {
   "Web": Web,
