@@ -985,9 +985,9 @@ function selectClosestElement() {
     }
 
     if (start) {
-      temp['makingEdge'] = {'start': target};
-      selected.push(target);
-      populateSelectedPane(target);
+      temp['makingEdge'] = {'start': start};
+      selected.push(start);
+      populateSelectedPane(start);
       highlightSelected();
     }
 

@@ -517,10 +517,11 @@ class ListField(MongoField):
       element.mark_clean()
 
   def serialize(self, **kwargs):
-    # if isinstance(self.field_class, ModelField):
-    #   return [item.serialize(**kwargs)['id'] for item in self.value]
-    # else:
-    return [item.serialize(**kwargs) for item in self.value]
+    if isinstance(self.field_class, ModelField):
+      kwargs['include_id'] = True
+      return [item.serialize(**kwargs)['id'] for item in self.value]
+    else:
+      return [item.serialize(**kwargs) for item in self.value]
 
   def deserialize(self, data):
     if isinstance(self.field_class, ModelField):

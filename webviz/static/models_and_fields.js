@@ -916,6 +916,7 @@ function saveDirtyModels() {
           }
         } else {
           console.log('Error acting on model:', responseData[index], modelCommands[index]);
+          clearInterval(saveTimer);
         }
       }
 
