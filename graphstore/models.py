@@ -499,7 +499,6 @@ class ListField(MongoField):
         return True
 
     dirty_fields = {}
-    # import ipdb; ipdb.set_trace()
 
     for index, element in enumerate(self.value):
       dirty = element.is_dirty()
@@ -570,6 +569,42 @@ class ModelField(MongoField):
 
   def deserialize(self, data):
     return MongoModel.get_or_make_ref(self.model_class, data)
+
+
+class NestedField(MongoField):
+  def __init__(self, fields, **kwargs):
+    kwargs.setdefault('fields', fields)
+    super().__init__(**kwargs)
+
+    self._fields = {}
+    for name, field in self.config['fields'].items():
+      self._fields[name] = field.copy()
+
+  def __getattribute__(self, name):
+    if name == 'value':
+      return {key: self._fields[key].value for key in self._fields.keys()}
+
+    else:
+      return super().__getattribute__(name)
+
+  def __setattr__(self, name, new_value):
+    if name == 'value':
+      self.dirty = True
+
+      if new_value is None:
+        return
+
+      for key, val in new_value.items():
+        self._fields[key].value = val
+
+    else:
+      super().__setattr__(name, new_value)
+
+  def serialize(self, **kwargs):
+    return {name: self._fields[name].serialize(**kwargs) for name in self._fields.keys()}
+
+  def deserialize(self, data, **kwargs):
+    return {name: self._fields[name].deserialize(value, **kwargs) for name, value in data.items()}
 
 
 # ## index stuff

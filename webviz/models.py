@@ -1,4 +1,4 @@
-from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BinaryField, ListField, EnumField, DictField
+from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BinaryField, ListField, EnumField, DictField, NestedField, FloatField
 import bcrypt
 import random
 import string
@@ -59,7 +59,14 @@ class Account(MongoModel):
 
 class Vertex(MongoModel):
   node = ModelField(Node)
-  screen = DictField()
+  screen = NestedField(dict(
+    x=FloatField(default=0),
+    y=FloatField(default=0),
+    xv=FloatField(default=0),
+    yv=FloatField(default=0),
+    size=FloatField(default=100),
+    color=StringField(default='gray'),
+  ))
   labels = ListField(ModelField('Prop'))
   subwebs = ListField(ModelField('Web'))
   data = DictField()

@@ -22,7 +22,10 @@ class BaseField {
   }
 
   deserialize(data) {
-    return data || this.default;
+    if (data === undefined) {
+      return this.default;
+    }
+    return data;
   }
 
   get value() {
@@ -75,11 +78,11 @@ class StringField extends BaseField {
     super(params)
     this.min_length = params.min_length || 0;
     this.max_length = params.max_length || null;
-    this.placeholder = params.placeholder || "";
+    this.placeholder = params.placeholder || '';
   }
 
   _getType() {
-    return "string";
+    return 'string';
   }
 
   validate(value) {
@@ -87,7 +90,7 @@ class StringField extends BaseField {
 
     if (value == null) { return; }
 
-    if (typeof value !== "string") {
+    if (typeof value !== 'string') {
       throw new Error("Value '" + value + "' is not a string.");
     } else if (value.length < this.min_length) {
       throw new Error("Value '" + value + "' is too short; it must be at least " + this.min_length + " characters.");
@@ -108,7 +111,7 @@ class StringField extends BaseField {
   }
 }
 
-class IntegerField extends BaseField {
+class NumberField extends BaseField {
   constructor(params) {
     super(params)
     this.min = params.min || null;
@@ -116,19 +119,39 @@ class IntegerField extends BaseField {
   }
 
   _getType() {
-    return "integer";
+    return 'number';
   }
 
   validate(value) {
     super.validate(value);
 
-    if (typeof value !== "number") {
+    if (typeof value !== 'number') {
       throw new Error("Value '" + value + "' is not a number.");
     } else if (value.length < this.min) {
       throw new Error("Value '" + value + "' is smaller than the minimum of " + this.min + ".");
     } else if (value.length < this.max) {
       throw new Error("Value '" + value + "' is greater than the maximum of " + this.max + ".");
     }
+  }
+
+  addInput(container, editable) {
+    let input = container.append('input')
+      .attr('type', 'number')
+      .property('value', this.value);
+    this.applyDefaultInputStyling(input, editable);
+
+    if (this.min) {
+      input.attr('min', this.min);
+    }
+    if (this.max) {
+      input.attr('max', this.max);
+    }
+
+    this._input = input;
+  }
+
+  applyChanges() {
+    this.value = Number(this._input.property('value'));
   }
 }
 
@@ -269,7 +292,7 @@ class ModelField extends BaseField {
   }
 
   _getType() {
-    return "model";
+    return 'model';
   }
 
   serialize() {
@@ -384,7 +407,7 @@ class DictField extends BaseField {
   }
 
   _getType() {
-    return "dict";
+    return 'dict';
   }
 
   addInput(container, editable) {
@@ -397,6 +420,91 @@ class DictField extends BaseField {
 
   applyChanges() {
     this._value = JSON.parse(this._input.property('value'));
+  }
+}
+
+class NestedField extends BaseField {
+  constructor(params) {
+    params.default = params.default || {};
+    super(params);
+    this._fields = params._fields;
+
+    for (let field in this._fields) {
+      Object.defineProperty(this, field, {
+        "enumerable": true,
+        "get": () => this._fields[field].value,
+        "set": (newValue) => {this._fields[field].value = newValue},
+      });
+    }
+  }
+
+  _getType() {
+    return 'nested';
+  }
+
+  serialize() {
+    let values = {};
+
+    for (let field in this._fields) {
+      values[field] = this._fields[field].serialize();
+    }
+
+    return values;
+  }
+
+  get value() {
+    let values = {};
+
+    for (let field in this._fields) {
+      values[field] = this._fields[field].value;
+    }
+
+    return values;
+  }
+
+  set value(newValue) {
+    for (let field in this._fields) {
+      this._fields[field].value = this._fields[field].deserialize(newValue[field]);
+    }
+  }
+
+  isDirty() {
+    let changedBool = false;
+    let changedDict = {};
+
+    for (let field in this._fields) {
+      let [dirtyBool, dirtyValue] = this._fields[field].isDirty();
+      changedBool = changedBool || dirtyBool;
+
+      if (dirtyBool) {
+        changedDict[field] = dirtyValue;
+      }
+    }
+
+    return [changedBool, changedDict];
+  }
+
+  markClean() {
+    for (let field in this._fields) {
+      this._fields[field].markClean();
+    }
+  }
+
+  addInput(container, editable) {
+    let randomId = Math.random().toString().slice(2);
+    let inputDiv = container.append('div')
+      .attr('id', 'input' + randomId)
+      .style('padding', '5px')
+      .style('border-left', '2px solid black');
+
+    for (let index in editable) {
+      let [name, canEdit] = editable[index];
+      inputDiv.append('p')
+        .html('<em>' + name + '</em>')
+        .style('margin-bottom', 0)
+        .style('margin-top', index == 0 ? '0px' : '5px');
+      this._fields[name].addInput(inputDiv, canEdit);
+    }
   }
 }
 
@@ -545,21 +653,35 @@ class Edge extends BaseModel {
 }
 
 class Vertex extends BaseModel {
-  _modelName() { return "Vertex"; }
+  _modelName() { return 'Vertex'; }
 
   _getFields() {
     return {
-      "node": new ModelField("Node", {}),
-      "subwebs": new ListField(ModelField, ["Web", {}], {}),
-      "screen": new DictField({}),
-      "data": new DictField({}),
+      'node': new ModelField('Node', {}),
+      'subwebs': new ListField(ModelField, ['Web', {}], {}),
+      'screen': new NestedField({'_fields': {
+        'x': new NumberField({'default': 0}),
+        'y': new NumberField({'default': 0}),
+        'xv': new NumberField({'default': 0}),
+        'yv': new NumberField({'default': 0}),
+        'size': new NumberField({'default': 100}),
+        'color': new StringField({'default': 'gray'}),
+      }}),
+      'data': new DictField({}),
     }
   }
 
   _getDataFields() {
     return [
       ['node', false],
-      ['screen', true],
+      ['screen', [
+        ['x', true],
+        ['y', true],
+        ['xv', true],
+        ['yv', true],
+        ['size', true],
+        ['color', true],
+      ]],
       ['data', true],
     ]
   }
@@ -569,7 +691,7 @@ class Vertex extends BaseModel {
       'id': objectIdStockpile.pop(),
       'screen': {
         'x': 0, 'y': 0, 'xv': 0, 'yv': 0,
-        'color': 'gray',
+        'color': 'gray', 'size': 100,
       }
     }
 

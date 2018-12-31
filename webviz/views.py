@@ -54,6 +54,7 @@ def render_view(webid, **kwargs):
   web = Web.get_by_id(webid)
   context['web'] = web
   context['pretty_json'] = json.dumps(json.loads(web.json()), indent=2)
+  # import ipdb; ipdb.set_trace()
   # print(context['pretty_json'])
 
   return render_template('render.html', **context)

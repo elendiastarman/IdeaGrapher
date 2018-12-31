@@ -993,18 +993,35 @@ function selectClosestElement() {
 
   } else if (mouseState['lastReleased'] == 1) {
 
-    // deselect any currently selected vertices
+    // deselect any currently selected vertices or edges
     let i = 0;
     while (i < selected.length) {
-      if (selected[i]['type'] == 'vertex') {
+      if (selected[i]['type'] == 'vertex' || selected[i]['type'] == 'edge') {
         selected.splice(i, 1);
       } else {
         i += 1;
       }
     }
 
-    selected.push(targets[0][0]);
-    populateSelectedPane(targets[0][0]);
+    // Given a choice between a vertex and an edge, pick the vertex.
+    let closestVertex = null;
+    let closestEdge = null;
+
+    for (let index in targets) {
+      console.log('at index:', index, targets[i]);
+      if (targets[i][0] instanceof Vertex) {
+        closestVertex = targets[i][0];
+        break;
+      } else if (targets[i][0] instanceof Edge && closestEdge == null) {
+        closestEdge = targets[i][0];
+      }
+    }
+
+    let closestElement = closestVertex || closestEdge;
+    if (closestElement) {
+      selected.push(closestVertex || closestEdge);
+    }
+    populateSelectedPane(closestVertex || closestEdge);
     highlightSelected();
   }
 }
