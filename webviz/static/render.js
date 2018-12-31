@@ -887,11 +887,17 @@ function identifyTargets(x, y, types) {
             x2 = edge['end_vertices'].value[0]['screen']['x'],
             y2 = edge['end_vertices'].value[0]['screen']['y'];
 
+        let segmentLength = Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
+        let distFromVertex1 = Math.abs((x0 - x1) * (x2 - x1) + (y0 - y1) * (y2 - y1)) / segmentLength;
+        let distFromVertex2 = Math.abs((x0 - x2) * (x1 - x2) + (y0 - y2) * (y1 - y2)) / segmentLength;
         // Eq. (14) here: http://mathworld.wolfram.com/Point-LineDistance2-Dimensional.html
-        let dist = Math.abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1)) / Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
+        let perpendicularDist = Math.abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1)) / segmentLength;
 
-        if (dist < max_dist(edge)) {
-          targets.push([edge, dist]);
+        // Slight misnomer
+        let totalDist = perpendicularDist + (distFromVertex1 + distFromVertex2 - segmentLength);
+
+        if (totalDist < max_dist(edge)) {
+          targets.push([edge, totalDist]);
         }
       }
     }
@@ -1008,12 +1014,11 @@ function selectClosestElement() {
     let closestEdge = null;
 
     for (let index in targets) {
-      console.log('at index:', index, targets[i]);
-      if (targets[i][0] instanceof Vertex) {
-        closestVertex = targets[i][0];
+      if (targets[index][0] instanceof Vertex) {
+        closestVertex = targets[index][0];
         break;
-      } else if (targets[i][0] instanceof Edge && closestEdge == null) {
-        closestEdge = targets[i][0];
+      } else if (targets[index][0] instanceof Edge && closestEdge == null) {
+        closestEdge = targets[index][0];
       }
     }
 
