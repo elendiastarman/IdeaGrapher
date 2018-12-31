@@ -36,8 +36,8 @@ var temp = {};
 var models = {
   'nodes': new ModelLookup(Node),
   'vertices': new ModelLookup(Vertex),
-  // 'links': new ModelLookup(Link),
-  // 'edges': new ModelLookup(Edge),
+  'links': new ModelLookup(Link),
+  'edges': new ModelLookup(Edge),
   'graphs': new ModelLookup(Graph),
   'webs': new ModelLookup(Web),
   // 'rules': new ModelLookup(Rule),
@@ -80,9 +80,9 @@ function init() {
   panes['viz']['pane'] = svg.append('g')
     .attr('id', 'vizPane')
     .style('clip-path', 'url(#vizClip)');
-  panes['viz']['pane'].append('g').attr('id', 'vizVertices');
-  panes['viz']['pane'].append('g').attr('id', 'vizEdges');
   panes['viz']['pane'].append('g').attr('id', 'vizHighlights');
+  panes['viz']['pane'].append('g').attr('id', 'vizEdges');
+  panes['viz']['pane'].append('g').attr('id', 'vizVertices');
 
   panes['selected']['pane'] = svg.append('g')
     .attr('id', 'selectedPane')
@@ -129,14 +129,14 @@ function pairKey(vertex1id, vertex2id) {
 }
 
 function initNodes(data) {
-  nodesData = data['Node'] || [];
+  let nodesData = data['Node'] || [];
   for (let key in nodesData) {
     models['nodes'].add(new Node(nodesData[key]));
   }
 }
 
 function initVertices(data) {
-  verticesData = data['Vertex'] || [];
+  let verticesData = data['Vertex'] || [];
   for (let key in verticesData) {
     models['vertices'].add(new Vertex(verticesData[key]));
   }
@@ -150,71 +150,29 @@ function initVertices(data) {
   });
 }
 
-function initLinks(data) {}
-//   linksData = data['Link'] || [];
-//   let newLinkIds = [];
-//   for (let key in linksData) {
-//     links[key] = linksData[key];
-//     linkIds.push(key);
-//     newLinkIds.push(key);
+function initLinks(data) {
+  let linksData = data['Link'] || [];
+  for (let key in linksData) {
+    models['links'].add(new Link(linksData[key]));
+  }
+}
 
-//     let needSinksSet = true;
-
-//     links[key]['sources'].forEach(function(id1, index1){
-//       links[key]['sources'][index1] = nodes[id1];
-
-//       links[key]['sinks'].forEach(function(id2, index2){
-//         if(needSinksSet) {
-//           links[key]['sinks'][index2] = nodes[id2];
-//         }
-//       });
-
-//       needSinksSet = false;
-//     });
-//   }
-
-//   return newLinkIds;
-// }
-
-function initEdges(data) {}
-//   edgesData = data['Edge'] || [];
-//   let newEdgeIds = [];
-//   for (let key in edgesData) {
-//     edges[key] = edgesData[key];
-//     edgeIds.push(key);
-//     newEdgeIds.push(key);
-
-//     let needEndsSet = true;
-
-//     edges[key]['start_vertices'].forEach(function(id1, index1){
-//       edges[key]['start_vertices'][index1] = vertices[id1];
-
-//       edges[key]['end_vertices'].forEach(function(id2, index2){
-//         if(needEndsSet) {
-//           edges[key]['end_vertices'][index2] = vertices[id2];
-//         }
-
-//         pairs[pairKey(id1, id2)]['edge'] = edges[key];
-//       });
-
-//       needEndsSet = false;
-//     });
-
-//     edges[key]['link'] = links[edgesData[key]['link']];
-//   }
-
-//   return newEdgeIds;
-// }
+function initEdges(data) {
+  let edgesData = data['Edge'] || [];
+  for (let key in edgesData) {
+    models['edges'].add(new Edge(edgesData[key]));
+  }
+}
 
 function initGraphs(data) {
-  graphsData = data['Graph'] || [];
+  let graphsData = data['Graph'] || [];
   for (let key in graphsData) {
     models['graphs'].add(new Graph(graphsData[key]));
   }
 }
 
 function initWebs(data) {
-  websData = data['Web'] || [];
+  let websData = data['Web'] || [];
   for (let key in websData) {
     models['webs'].add(new Web(websData[key]));
   }
@@ -316,15 +274,15 @@ function drawSync() {
 
   vData.exit().remove();
 
-  // let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
-  // let eGroup = eData.enter().append('g')
-  //   .attr('class', 'edge')
-  //   .attr('id', function(d){ return d; });
-  // eGroup.append('line')
-  //   .attr('stroke', 'black')
-  //   .attr('stroke-wdith', '2px');
+  let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
+  let eGroup = eData.enter().append('g')
+    .attr('class', 'edge')
+    .attr('id', function(d){ return d; });
+  eGroup.append('line')
+    .attr('stroke', 'black')
+    .attr('stroke-wdith', '2px');
 
-  // eData.exit().remove();
+  eData.exit().remove();
 
   draw();
 }
@@ -353,13 +311,13 @@ function draw() {
   vData.selectAll('text.inner')
     .style('stroke-width', 1 / vScale);
 
-  // let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
-  // eData.selectAll('line')
-  //   .attr('x1', function(d){ return models['edges'][d]['start_vertices'][0]['screen']['x']; })
-  //   .attr('y1', function(d){ return models['edges'][d]['start_vertices'][0]['screen']['y']; })
-  //   .attr('x2', function(d){ return models['edges'][d]['end_vertices'][0]['screen']['x']; })
-  //   .attr('y2', function(d){ return models['edges'][d]['end_vertices'][0]['screen']['y']; })
-  //   .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
+  let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
+  eData.selectAll('line')
+    .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
+    .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
+    .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
+    .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
+    .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
 
   panes['viz']['pane'].attr('transform', 'translate(' + (vX * vScale + width * paneSplitPercent / 2) + ', ' + (vY * vScale + height / 2) + ') scale(' + (vScale) + ')');
   panes['selected']['pane'].attr('transform', 'translate(' + (width * paneSplitPercent) + ', 0)');
@@ -551,7 +509,14 @@ function saveWebname() {
 var now = Date.now();
 var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, middle button, right button, scroll wheel
 var mouseEventTimes = [now, now, now, now, now];
-var mouseState = {"state": "hover", "scrollTime": 0, "changed": false, "scrolled": false};
+var mouseState = {
+  "state": "hover",
+  "scrollTime": 0,
+  "changed": false,
+  "scrolled": false,
+  "lastPressed": null,
+  "lastReleased": null,
+};
 
 function handleMouseDown() {
   if (whichPane(d3.event)[0] == 'viz') {
@@ -562,6 +527,7 @@ function handleMouseDown() {
   mouseEvents[d3.event.which].unshift([d3.event, null]);
   mouseEvents[0].unshift([d3.event, null]);
   mouseEventTimes[d3.event.which] = Date.now();
+  mouseState['lastPressed'] = d3.event.which;
 }
 
 function handleMouseUp() {
@@ -573,6 +539,7 @@ function handleMouseUp() {
   mouseEvents[d3.event.which][0][1] = d3.event;
   mouseEvents[0].unshift([d3.event, null]);
   mouseEventTimes[d3.event.which] = Date.now();
+  mouseState['lastReleased'] = d3.event.which;
 }
 
 function handleMouseMove() {
@@ -596,7 +563,7 @@ function handleMouseScroll() {
   mouseEventTimes[4] = Date.now();
 }
 
-var moveDis = 10;
+var moveDis = 5;
 var holdTime = 400;
 var clickWaitTime = 300;
 
@@ -902,13 +869,29 @@ function identifyTargets(x, y, types) {
     max_dist = max_dist || function(){ return Infinity; };
 
     if (type == 'vertices') {
-      for (let vert of models['vertices']) {
-        let vx = vert['screen']['x'];
-        let vy = vert['screen']['y'];
+      for (let vertex of models['vertices']) {
+        let vx = vertex['screen']['x'];
+        let vy = vertex['screen']['y'];
         let dist = Math.sqrt((vx - x)**2 + (vy - y)**2);
 
-        if (dist < max_dist(vert)) {
-          targets.push([vert, dist]);
+        if (dist < max_dist(vertex)) {
+          targets.push([vertex, dist]);
+        }
+      }
+    } else if (type == 'edges') {
+      for (let edge of models['edges']) {
+        let x0 = x,
+            y0 = y,
+            x1 = edge['start_vertices'].value[0]['screen']['x'],
+            y1 = edge['start_vertices'].value[0]['screen']['y'],
+            x2 = edge['end_vertices'].value[0]['screen']['x'],
+            y2 = edge['end_vertices'].value[0]['screen']['y'];
+
+        // Eq. (14) here: http://mathworld.wolfram.com/Point-LineDistance2-Dimensional.html
+        let dist = Math.abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1)) / Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
+
+        if (dist < max_dist(edge)) {
+          targets.push([edge, dist]);
         }
       }
     }
@@ -924,51 +907,111 @@ function createVertex() {
     return;
   }
 
-  let newNode = new Node(Node._defaultData({'data': {'size': 10}}), false);
-  let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id}), false);
-  graphs[graphIds[0]]['nodes'].push(newNode.id);
-  webs[webIds[0]]['vertices'].push(newVertex.id);
-
+  let newNode = new Node(Node._defaultData({'data': {'size': 100}}), false);
+  let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id, 'data': {'shortname': 'text'}}), false);
   models['nodes'].add(newNode);
   models['vertices'].add(newVertex);
+
+  models['graphs'].index(0)['nodes'].push(newNode.id);
+  models['webs'].index(0)['vertices'].push(newVertex.id);
 
   drawSync();
 }
 
-function selectClosestVertex() {
+function makeEdge(start_vertex, end_vertex) {
+  let newLink = new Link(Link._defaultData({'sources': [start_vertex['node'].value.id], 'sinks': [end_vertex['node'].value.id]}), false);
+  let newEdge = new Edge(Edge._defaultData({'start_vertices': [start_vertex.id], 'end_vertices': [end_vertex.id], 'link': newLink.id}), false);
+  models['links'].add(newLink);
+  models['edges'].add(newEdge);
+
+  models['graphs'].index(0)['links'].push(newLink.id);
+  models['webs'].index(0)['edges'].push(newEdge.id);
+
+  drawSync();
+}
+
+function selectClosestElement() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
   if (pane != 'viz') {
     return;
   }
 
-  let max_dist = function(vert){
-    return Math.sqrt(vert['node']['data']['size']);
+  let vert_max_dist = function(vertex){
+    return Math.sqrt(vertex['node']['data']['size']);
+  };
+  let edge_max_dist = function(edge){
+    return 5;
   };
 
-  let targets = identifyTargets(x, y, [['vertices', max_dist]]);
+  let targets = identifyTargets(x, y, [['vertices', vert_max_dist], ['edges', edge_max_dist]]);
 
-  // deselect any currently selected vertices
-  let i = 0;
-  while (i < selected.length) {
-    if (selected[i]['type'] == 'vertex') {
-      selected.splice(i, 1);
-    } else {
-      i += 1;
+  if (targets.length <= 1) {
+    populateSelectedPane();
+    highlightSelected();
+    return;
+  }
+
+  console.log(targets);
+
+  if (temp['makingEdge'] != undefined) {
+    let end = null;
+
+    for (let index in targets) {
+      let target = targets[index][0];
+
+      if (target instanceof Vertex) {
+        end = target;
+        break;
+      }
+
     }
-  }
 
-  if (targets.length > 1) {
+    if (end) {
+      makeEdge(temp['makingEdge']['start'], end);
+    }
+
+    delete temp['makingEdge'];
+
+  } else if (mouseState['lastReleased'] == 3) {
+    let start = null;
+
+    for (let index in targets) {
+      let target = targets[index][0];
+
+      if (target instanceof Vertex) {
+        start = target;
+        break;
+      }
+    }
+
+    if (start) {
+      temp['makingEdge'] = {'start': target};
+      selected.push(target);
+      populateSelectedPane(target);
+      highlightSelected();
+    }
+
+  } else if (mouseState['lastReleased'] == 1) {
+
+    // deselect any currently selected vertices
+    let i = 0;
+    while (i < selected.length) {
+      if (selected[i]['type'] == 'vertex') {
+        selected.splice(i, 1);
+      } else {
+        i += 1;
+      }
+    }
+
     selected.push(targets[0][0]);
+    populateSelectedPane(targets[0][0]);
+    highlightSelected();
   }
-
-  populateSelectedPane(targets[0][0]);
-  highlightSelected();
-  draw();
 }
 
 function multiClick() {
   if (mouseState['clicks'] == 1) {
-    selectClosestVertex();
+    selectClosestElement();
   } else if (mouseState['clicks'] == 2) {
     createVertex();
   }

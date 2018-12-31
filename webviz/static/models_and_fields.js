@@ -488,6 +488,7 @@ class Web extends BaseModel {
       "name": new StringField({nullable: true, placeholder: "Untitled"}),
       "graph": new ModelField("Graph", {}),
       "vertices": new ListField(ModelField, ["Vertex", {}], {}),
+      "edges": new ListField(ModelField, ["Edge", {}], {}),
       "data": new DictField({}),
     }
   }
@@ -497,8 +498,49 @@ class Web extends BaseModel {
       ['name', true],
       ['graph', false],
       ['vertices', false],
+      ['edges', false],
       ['data', true],
     ]
+  }
+}
+
+class Edge extends BaseModel {
+  _modelName() { return "Edge"; }
+
+  _getFields() {
+    return {
+      "link": new ModelField("Link", {}),
+      "kind": new StringField({'default': "connected"}),
+      "start_vertices": new ListField(ModelField, ["Vertex", {}], {}),
+      "end_vertices": new ListField(ModelField, ["Vertex", {}], {}),
+      "data": new DictField({}),
+    }
+  }
+
+  _getDataFields() {
+    return [
+      ['link', false],
+      ['kind', false],
+      ['start_vertices', false],
+      ['end_vertices', false],
+      ['data', true],
+    ]
+  }
+
+  static _defaultData(extraData) {
+    let data = {
+      'id': objectIdStockpile.pop(),
+    }
+
+    if (extraData) {
+      if (extraData['data']) {
+        data['data'] = Object.assign({}, data['data'], extraData['data']);
+        delete extraData['data'];
+      }
+      data = Object.assign({}, data, extraData);
+    }
+
+    return data;
   }
 }
 
@@ -552,7 +594,7 @@ class Graph extends BaseModel {
   _getFields() {
     return {
       "nodes": new ListField(ModelField, ["Node", {}], {}),
-      // "links": new ListField(ModelField, ["Link", {}], {}),
+      "links": new ListField(ModelField, ["Link", {}], {}),
       "data": new DictField({}),
     }
   }
@@ -562,6 +604,42 @@ class Graph extends BaseModel {
       ['nodes', false],
       ['data', true],
     ]
+  }
+}
+
+class Link extends BaseModel {
+  _modelName() { return "Link"; }
+
+  _getFields() {
+    return {
+      "sources": new ListField(ModelField, ["Node", {}], {}),
+      "sinks": new ListField(ModelField, ["Node", {}], {}),
+      "data": new DictField({}),
+    }
+  }
+
+  _getDataFields() {
+    return [
+      ['sources', false],
+      ['sinks', false],
+      ['data', true],
+    ]
+  }
+
+  static _defaultData(extraData) {
+    let data = {
+      'id': objectIdStockpile.pop(),
+    }
+
+    if (extraData) {
+      if (extraData['data']) {
+        data['data'] = Object.assign({}, data['data'], extraData['data']);
+        delete extraData['data'];
+      }
+      data = Object.assign({}, data, extraData);
+    }
+
+    return data;
   }
 }
 
@@ -669,12 +747,13 @@ class ModelLookup {
 var modelRefs = {};
 var modelMap = {
   "Web": Web,
+  "Edge": Edge,
   "Vertex": Vertex,
   "Graph": Graph,
+  "Link": Link,
   "Node": Node,
-  // "Link": Link,
 }
-var dependencyOrder = ['Node', 'Vertex', 'Graph', 'Web'];
+var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web'];
 for (let modelName in modelMap) {
   modelRefs[modelName] = {};
 }
@@ -729,6 +808,17 @@ function saveDirtyModels() {
 
         if (datum['$type'] == 'model') {
           datum['$value'] = {'$model': field.modelName, '$id': field.serialize()};
+        } else if (datum['$type'].slice(0, 4) == 'list') {
+          let innerType = datum['$type'].slice(5);
+          let innerData = field.serialize();
+          datum['$value'] = [];
+          for (let innerIndex in innerData) {
+            if (innerType == 'model') {
+              datum['$value'].push({'$model': field.fieldArgs[0], '$id': innerData[innerIndex]});
+            } else {
+              datum['$value'].push(innerData[innerIndex].serialize());
+            }
+          }
         } else {
           datum['$value'] = field.serialize();
         }
