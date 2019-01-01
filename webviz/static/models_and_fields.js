@@ -5,7 +5,7 @@ if (typeof Proxy == "undefined") {
 
 class BaseField {
   constructor(params) {
-    this.default = params.default || null;
+    this.default = params.default === undefined ? null : params.default;
     this.nullable = params.nullable || false;
 
     this._value = this.default;
@@ -33,6 +33,9 @@ class BaseField {
   }
 
   set value(newValue) {
+    if (newValue === undefined) {
+      newValue = this.default;
+    }
     this.validate(newValue);
     this._value = newValue;
     this._dirty = true;
@@ -207,6 +210,31 @@ class ListField extends BaseField {
     return values;
   }
 
+  get value() {
+    if (this.fieldClass == ModelField) {
+      for (let index in this._value) {
+        if (typeof this._value[index] == 'string') {
+          let field = new this.fieldClass(...this.fieldArgs);
+          this._value[index] = field.deserialize(this._value[index]);
+        }
+      }
+    }
+    return this._value;
+  }
+
+  set value(newValue) {
+    newValue = newValue === undefined ? this.default : newValue;
+
+    for (let index in newValue) {
+      let field = new this.fieldClass(...this.fieldArgs);
+      newValue[index] = field.deserialize(newValue[index]);
+    }
+
+    this.validate(newValue);
+    this._value = newValue;
+    this._dirty = true;
+  }
+
   push(...values) {
     for (let index in values) {
       let field = new this.fieldClass(...this.fieldArgs);
@@ -225,11 +253,6 @@ class ListField extends BaseField {
   addInput(container, editable) {
     let temp = container.append('div');
     this._input = temp;
-
-    // let input = temp.append('input')
-    //   .attr('class', 'input')
-    //   .property('value', this.value.id);
-    // this.applyDefaultInputStyling(input, editable);
 
     let randomId = Math.random().toString().slice(2);
     let div = this._input.append('div')
@@ -613,7 +636,7 @@ class Web extends BaseModel {
   _modelName() { return 'Web'; }
   _getFields() {
     return {
-      'name': new StringField({nullable: true, placeholder: 'Untitled'}),
+      'name': new StringField({default: '', placeholder: 'Untitled'}),
       'graph': new ModelField('Graph', {}),
       'vertices': new ListField(ModelField, ['Vertex', {}], {}),
       'edges': new ListField(ModelField, ['Edge', {}], {}),
@@ -629,6 +652,22 @@ class Web extends BaseModel {
       ['edges', false],
       ['data', true],
     ]
+  }
+
+  static _defaultData(extraData) {
+    let data = {
+      'id': objectIdStockpile.pop(),
+    }
+
+    if (extraData) {
+      if (extraData['data']) {
+        data['data'] = Object.assign({}, data['data'], extraData['data']);
+        delete extraData['data'];
+      }
+      data = Object.assign({}, data, extraData);
+    }
+
+    return data;
   }
 }
 
@@ -732,20 +771,37 @@ class Vertex extends BaseModel {
 }
 
 class Graph extends BaseModel {
-  _modelName() { return "Graph"; }
+  _modelName() { return 'Graph'; }
   _getFields() {
     return {
-      "nodes": new ListField(ModelField, ["Node", {}], {}),
-      "links": new ListField(ModelField, ["Link", {}], {}),
-      "data": new DictField({}),
+      'nodes': new ListField(ModelField, ['Node', {}], {}),
+      'links': new ListField(ModelField, ['Link', {}], {}),
+      'data': new DictField({}),
     }
   }
 
   _getDataFields() {
     return [
       ['nodes', false],
+      ['links', false],
       ['data', true],
     ]
+  }
+
+  static _defaultData(extraData) {
+    let data = {
+      'id': objectIdStockpile.pop(),
+    }
+
+    if (extraData) {
+      if (extraData['data']) {
+        data['data'] = Object.assign({}, data['data'], extraData['data']);
+        delete extraData['data'];
+      }
+      data = Object.assign({}, data, extraData);
+    }
+
+    return data;
   }
 }
 

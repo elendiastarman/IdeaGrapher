@@ -58,7 +58,7 @@ function init() {
   startTime = Date.now();
 
   loadData();
-  currentWebs.push(models['webs'].index(0));
+  currentWebs.push({'web': models['webs'].index(0), 'parent': null, 'scale': 1});
 
   svg.style('border', '1px solid black');
   svg.append('rect')
@@ -281,6 +281,15 @@ function drawSync() {
     .style('fill', 'white')
     .style('stroke', 'white');
 
+  let subwebContainers = vEnterGroup.append('g')
+    .attr('class', 'subwebContainer')
+    .style('visibility', 'hidden');
+  subwebContainers.append('circle')
+    .attr('class', 'backing')
+    .style('fill', 'white');
+  subwebContainers.append('g')
+    .attr('class', 'subweb');
+
   vData.exit().remove();
 
   let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
@@ -304,21 +313,22 @@ function draw() {
       height = panes['global']['height'];
 
   let vData = panes['viz']['pane'].select('#vizVertices').selectAll('.vertex').data(models['vertices'].modelIds, function(d){ return d; });
-  vData.selectAll('circle')
-    .attr('cx', function(d){ return models['vertices'][d]['screen']['x']; })
-    .attr('cy', function(d){ return models['vertices'][d]['screen']['y']; })
+  vData
+    .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')' });
+  vData.select('circle')
     .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); })
     .attr('stroke-width', (2 / vScale) + 'px')
     .attr('fill', function(d){ return models['vertices'][d]['screen']['color'] || 'gray'; });
   vData.selectAll('text')
-    .attr('x', function(d){ return models['vertices'][d]['screen']['x']; })
-    .attr('y', function(d){ return models['vertices'][d]['screen']['y']; })
     .text(function(d){ return models['vertices'][d]['data']['shortname']})
     .attr('font-size', 16 / vScale );
-  vData.selectAll('text.outer')
+  vData.select('text.outer')
     .style('stroke-width', 5 / vScale);
-  vData.selectAll('text.inner')
+  vData.select('text.inner')
     .style('stroke-width', 1 / vScale);
+
+  vData.select('.subwebContainer').select('circle')
+    .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); });
 
   let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
   eData.selectAll('line')
@@ -338,7 +348,7 @@ function populateSelectedPane(element) {
   if (element != null) {
     element._populateContainer(panes['selected']['contents']);
   } else {
-    currentWebs[currentWebs.length - 1]._populateContainer(panes['selected']['contents']);
+    currentWebs[currentWebs.length - 1]['web']._populateContainer(panes['selected']['contents']);
   }
 }
 
@@ -712,7 +722,7 @@ function respondToScrollInput() {
   if (!mouseState['scrolled']) {
     return false;
   }
-  if(mouseState["scroll"][1] == 0) {
+  if(mouseState['scroll'][1] == 0) {
     return false;
   }
 
@@ -725,9 +735,9 @@ function respondToScrollInput() {
 
   let dispX, dispY, scaleFactor;
 
-  if(mouseState["scroll"][1] < 0) {
+  if (mouseState['scroll'][1] < 0) {
     scaleFactor = 1.2;
-  } else if (mouseState["scroll"][1] > 0) {
+  } else if (mouseState['scroll'][1] > 0) {
     scaleFactor = 1 / 1.2;
   }
 
@@ -737,7 +747,57 @@ function respondToScrollInput() {
   panes['viz']['y'] += dispY * (1 / scaleFactor - 1);
   panes['viz']['scale'] *= scaleFactor;
 
+  enterOrExitSubweb(mouseState['scroll'][1]);
+
   return true;
+}
+
+function enterOrExitSubweb(scrollDirection) {
+  let topWeb = currentWebs[currentWebs.length - 1];
+  console.log('topWeb:', topWeb);
+
+  if (scrollDirection < 0) {
+    // zooming in; can enter subweb
+    let chosenVertex = null;
+    let chosenDist = Infinity;
+
+    for (let index in topWeb['web'].vertices.value) {
+      let vertex = topWeb['web'].vertices.value[index];
+      let visualSize = panes['viz']['scale'] * Math.sqrt(vertex['node']['data']['size']) * 2;
+      let threshold = Math.min(panes['global']['width'], panes['global']['height']);
+      let xDiff = Math.abs(vertex['screen']['x'] + panes['viz']['x']) * panes['viz']['scale'];
+      let yDiff = Math.abs(vertex['screen']['y'] + panes['viz']['y']) * panes['viz']['scale'];
+
+      if (visualSize > threshold && xDiff < panes['global']['width'] * paneSplitPercent / 2 && yDiff < panes['global']['height'] / 2) {
+        let distFromCenter = xDiff**2 + yDiff**2;
+        if (chosenVertex == null || distFromCenter < chosenDist) {
+          chosenVertex = vertex;
+          chosenDist = distFromCenter;
+        }
+      }
+    }
+
+    if (chosenVertex == null || chosenVertex.subwebs.value.length == 0) {
+      return;
+    }
+
+    // console.log('chosenVertex:', chosenVertex);
+    d3.select('[id=\'' + chosenVertex.id + '\']').select('.subwebContainer').style('visibility', 'visible');
+    // console.log('subwebs:', chosenVertex.subwebs.value);
+    currentWebs.push({'web': chosenVertex.subwebs.value[0], 'parent': chosenVertex, 'scale': 1});
+
+  } else if (scrollDirection > 0) {
+    // zooming out; can exit subweb
+    if (currentWebs.length <= 1) {
+      return;
+    }
+
+    if (panes['viz']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < Math.min(panes['global']['width'], panes['global']['height'])) {
+      console.log('exiting subweb');
+      d3.select('[id=\'' + topWeb['parent'].id + '\']').select('.subwebContainer').style('visibility', 'hidden');
+      currentWebs.pop();
+    }
+  }
 }
 
 function executeContinuousTriggers() {
@@ -872,13 +932,15 @@ function normalizeMousePosition(event) {
 function identifyTargets(x, y, types) {
   let targets = [[null, Infinity]];
   types = types || [];
+  let topWeb = currentWebs[currentWebs.length - 1]['web'];
 
   for (let index in types) {
     let [type, max_dist] = types[index];
     max_dist = max_dist || function(){ return Infinity; };
 
     if (type == 'vertices') {
-      for (let vertex of models['vertices']) {
+      for (let index in topWeb['vertices'].value) {
+        let vertex = topWeb['vertices'].value[index];
         let vx = vertex['screen']['x'];
         let vy = vertex['screen']['y'];
         let dist = Math.sqrt((vx - x)**2 + (vy - y)**2);
@@ -888,7 +950,8 @@ function identifyTargets(x, y, types) {
         }
       }
     } else if (type == 'edges') {
-      for (let edge of models['edges']) {
+      for (let index in topWeb['edges'].value) {
+        let edge = topWeb['edges'].value[index];
         let x0 = x,
             y0 = y,
             x1 = edge['start_vertices'].value[0]['screen']['x'],
@@ -931,8 +994,11 @@ function handleDoubleClick() {
   if (targets.length <= 1) {
     createVertex(x, y);
   } else {
-    zoomToVertex(targets[0][0]);
-    // createSubweb(targets[0][0]);
+    let vertex = targets[0][0];
+    zoomToVertex(vertex);
+    if (vertex.subwebs.value.length == 0) {
+      createSubweb(vertex);
+    }
   }
 }
 
@@ -942,8 +1008,35 @@ function createVertex(x, y) {
   models['nodes'].add(newNode);
   models['vertices'].add(newVertex);
 
-  models['webs'].index(-1)['vertices'].push(newVertex.id);
-  models['webs'].index(-1).graph['nodes'].push(newNode.id);
+  let topWeb = currentWebs[currentWebs.length - 1]['web'];
+  topWeb['vertices'].push(newVertex.id);
+  topWeb.graph['nodes'].push(newNode.id);
+
+  drawSync();
+}
+
+function createSubweb(vertex) {
+  let newGraph = new Graph(Graph._defaultData(), false);
+  console.log('newGraph:', newGraph);
+  console.log('newGraph.id:', newGraph.id);
+  let newWeb = new Web(Web._defaultData({'graph': newGraph.id}), false);
+  vertex.node.subgraphs.push(newGraph.id);
+  vertex.subwebs.push(newWeb.id);
+
+  models['graphs'].add(newGraph);
+  models['webs'].add(newWeb);
+
+  drawSync();
+}
+
+function makeEdge(start_vertex, end_vertex) {
+  let newLink = new Link(Link._defaultData({'sources': [start_vertex['node'].value.id], 'sinks': [end_vertex['node'].value.id]}), false);
+  let newEdge = new Edge(Edge._defaultData({'start_vertices': [start_vertex.id], 'end_vertices': [end_vertex.id], 'link': newLink.id}), false);
+  models['links'].add(newLink);
+  models['edges'].add(newEdge);
+
+  models['webs'].index(-1)['edges'].push(newEdge.id);
+  models['webs'].index(-1).graph['links'].push(newLink.id);
 
   drawSync();
 }
@@ -980,21 +1073,10 @@ function zoomToVertex(vertex) {
     if (done) {
       clearInterval(temp['zooming']['timer']);
       delete temp['zooming'];
+      enterOrExitSubweb(-1);
     }
 
   }
-}
-
-function makeEdge(start_vertex, end_vertex) {
-  let newLink = new Link(Link._defaultData({'sources': [start_vertex['node'].value.id], 'sinks': [end_vertex['node'].value.id]}), false);
-  let newEdge = new Edge(Edge._defaultData({'start_vertices': [start_vertex.id], 'end_vertices': [end_vertex.id], 'link': newLink.id}), false);
-  models['links'].add(newLink);
-  models['edges'].add(newEdge);
-
-  models['webs'].index(-1)['edges'].push(newEdge.id);
-  models['webs'].index(-1).graph['links'].push(newLink.id);
-
-  drawSync();
 }
 
 function selectClosestElement() {
