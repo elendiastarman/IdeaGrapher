@@ -10,5 +10,6 @@ setup(
         'bcrypt',
         'wtforms',
         'flask-shell-ipython',
+        'docopt',
     ],
 )

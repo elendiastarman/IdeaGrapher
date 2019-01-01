@@ -57,6 +57,19 @@ class Account(MongoModel):
     self.session_auth_hash = new_session_auth_hash
 
 
+class Document(MongoModel):
+  name = StringField(default='')
+  owner = StringField()  # Account.genid
+  visibility = EnumField(['private', 'shared', 'public'], default='private')
+
+  webs = ListField(ModelField('Web'))
+  rules = ListField(ModelField('Rule'))
+  data = DictField()
+
+  visibility_index = MongoIndex(['visibility'])
+  owner_index = MongoIndex(['owner'])
+
+
 class Vertex(MongoModel):
   node = ModelField(Node)
   screen = NestedField(dict(
@@ -81,26 +94,15 @@ class Edge(MongoModel):
 
 
 class Web(MongoModel):
+  name = StringField(default='')
   graph = ModelField(Graph)
-  name = StringField(default='')  # '' means it's untitled
-  owner = StringField()  # Account.genid
-  visibility = EnumField(['private', 'shared', 'public'], default='private')
   vertices = ListField(ModelField(Vertex))
   edges = ListField(ModelField(Edge))
-  rules = ListField(ModelField('Rule'))
   data = DictField()
-
-  visibility_index = MongoIndex(['visibility'])
-  owner_index = MongoIndex(['owner'])
 
 
 class Rule(MongoModel):
   type = EnumField(['constraint', 'transformation'])
-  data = DictField()
-
-
-class Camera(MongoModel):
-  screen = DictField()
   data = DictField()
 
 

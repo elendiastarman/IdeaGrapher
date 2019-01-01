@@ -3,7 +3,7 @@ from graphstore.models import Graph, Link, Node
 from bson import ObjectId
 
 from . import app
-from .models import Account, Web, Edge, Vertex, Rule, Prop, Camera
+from .models import Account, Document, Web, Edge, Vertex, Rule, Prop
 from .forms import LoginForm, RegisterForm
 from .auth import login, logout, get_user
 
@@ -11,9 +11,10 @@ import json
 import traceback
 
 MODEL_MAP = {
+  'Document': Document,
   'Graph': Graph, 'Link': Link, 'Node': Node,
   'Web': Web, 'Edge': Edge, 'Vertex': Vertex,
-  'Rule': Rule, 'Prop': Prop, 'Camera': Camera,
+  'Rule': Rule, 'Prop': Prop,
 }
 
 
@@ -24,58 +25,42 @@ def home_view(**kwargs):
 
   account = get_user(session)
 
-  context['webs'] = []
+  context['docs'] = []
   if account:
-    context['webs'] = Web.find({'owner': account.genid})
+    context['docs'] = Document.find({'owner': account.genid})
 
   return render_template('home.html', **context)
 
 
-@app.route('/newweb', methods=['GET'])
-def new_web_view(**kwargs):
-  print("session:", session)
+@app.route('/newdoc', methods=['GET'])
+def new_doc_view(**kwargs):
   account = get_user(session)
 
   graph = Graph()
   graph.save()
 
-  web = Web(owner=account.genid, graph=graph)
+  web = Web(graph=graph)
   web.save()
 
-  new_web_id = web.id
+  doc = Document(owner=account.genid, webs=[web])
+  doc.save()
 
-  return redirect(url_for('render_view', webid=new_web_id))
+  return redirect(url_for('render_view', docid=doc.id))
 
 
-@app.route('/render/<webid>', methods=['GET'])
-def render_view(webid, **kwargs):
-  context = {'webid': webid}
+@app.route('/render/<docid>', methods=['GET'])
+def render_view(docid, **kwargs):
+  context = {'docid': docid}
+  account = get_user(session)
 
-  web = Web.get_by_id(webid)
-  context['web'] = web
-  context['pretty_json'] = json.dumps(json.loads(web.json()), indent=2)
-  # import ipdb; ipdb.set_trace()
-  # print(context['pretty_json'])
+  doc = Document.get_by_id(docid)
+  context['doc'] = doc
+  context['pretty_json'] = json.dumps(json.loads(doc.json()), indent=2)
+
+  if doc.visibility == 'private' and doc.owner != account.genid:
+    abort(404)
 
   return render_template('render.html', **context)
-
-
-def deprecated_view(**kwargs):
-  context = {}
-
-  # print("user:", request.user)
-  print("session.items:", session.items())
-
-  graph = Graph.find_one({'slug': 'plant-pollinator1'})
-  context['nodes'] = graph.nodes
-  context['links'] = graph.links
-
-  return render_template('home.html', **context)
-
-
-@app.route('/', methods=['POST'])
-def test(**kwargs):
-  pass
 
 
 @app.route('/favicon')

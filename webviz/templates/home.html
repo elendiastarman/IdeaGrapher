@@ -2,20 +2,20 @@
 
 {% block styling %}
     {{ super() }}
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='home.css') }}" />
+    {# <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='home.css') }}" /> #}
 {% endblock %}
 
 {% block content %}
-    <h1>Your webs</h1>
+    <h1>Your docs</h1>
 
     <br/><br/>
 
     {% if session.user %}
-        <ul id="webs">
-            {% for web in webs %}
-                <li><a href="{{ url_for('render_view', webid=web.id) }}">
-                    {% if web.name %}
-                        {{ web.name }}
+        <ul id="docs">
+            {% for doc in docs %}
+                <li><a href="{{ url_for('render_view', docid=doc.id) }}">
+                    {% if doc.name %}
+                        {{ doc.name }}
                     {% else %}
                         <em>Untitled</em>
                     {% endif %}
@@ -23,9 +23,9 @@
             {% endfor %}
         </ul>
 
-        <a href="{{ url_for('new_web_view') }}">+ New Web</a>
+        <a href="{{ url_for('new_doc_view') }}">+ New Web</a>
     {% else %}
-        <p>Support for anonymous webs eventually!</p>
+        <p>Support for anonymous docs eventually!</p>
     {% endif %}
 {% endblock %}
 

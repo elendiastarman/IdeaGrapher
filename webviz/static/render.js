@@ -1,6 +1,6 @@
 "use strict;"
 // The following come from models-and-fields.js:
-// Web, Graph, Vertex, Node
+// Web, Graph, Vertex, Node, etc
 
 var svg = d3.select('#display');
 
@@ -41,6 +41,7 @@ var models = {
   'graphs': new ModelLookup(Graph),
   'webs': new ModelLookup(Web),
   // 'rules': new ModelLookup(Rule),
+  'documents': new ModelLookup(Document),
 };
 
 // Miscellaneous variables that haven't been reorganized yet
@@ -48,7 +49,7 @@ var selected = [],
     pairs = {},
     paneSplitPercent = 0.75,
     paneSplitBorder = null,
-    currentWeb = null;
+    currentWebs = [];
 
 $(document).ready(function(){ init(); });
 
@@ -57,7 +58,7 @@ function init() {
   startTime = Date.now();
 
   loadData();
-  currentWeb = models['webs'].index(0);
+  currentWebs.push(models['webs'].index(0));
 
   svg.style('border', '1px solid black');
   svg.append('rect')
@@ -102,7 +103,7 @@ function init() {
   $('#start').on('click', start);
   $('#stop').on('click', stop);
   $('#step').on('click', step);
-  $('#webname').on('focusout', saveWebname);
+  $('#docname').on('focusout', saveDocname);
   $(window).on('resize', resizeSVG);
 
   svg.on('mousedown', handleMouseDown);
@@ -178,6 +179,13 @@ function initWebs(data) {
   }
 }
 
+function initDocuments(data) {
+  let documentsData = data['Document'] || [];
+  for (let key in documentsData) {
+    models['documents'].add(new Document(documentsData[key]));
+  }
+}
+
 function loadData() {
   let data = JSON.parse($('#data > p').html());
   initNodes(data);
@@ -186,6 +194,7 @@ function loadData() {
   initEdges(data);
   initGraphs(data);
   initWebs(data);
+  initDocuments(data);
 }
 
 function resizeSVG() {
@@ -329,7 +338,7 @@ function populateSelectedPane(element) {
   if (element != null) {
     element._populateContainer(panes['selected']['contents']);
   } else {
-    currentWeb._populateContainer(panes['selected']['contents']);
+    currentWebs[currentWebs.length - 1]._populateContainer(panes['selected']['contents']);
   }
 }
 
@@ -366,17 +375,17 @@ function step() {
   }
 }
 
-function saveWebname() {
-  let inputName = $('#webname').val();
-  web = models['webs'].index(0);
-  if (inputName != web['name'].value) {
-    web['name'].value = inputName;
+function saveDocname() {
+  let inputName = $('#docname').val();
+  doc = models['documents'].index(0);
+  if (inputName != doc['name'].value) {
+    doc['name'].value = inputName;
 
     $.ajax('/updatedata', {
       method: 'PUT',
       data: {'data': JSON.stringify([{
-        '$model': 'web',
-        '$id': web.id,
+        '$model': 'document',
+        '$id': doc.id,
         '$update': [{
           '$action': 'overwrite',
           '$type': 'string',
@@ -918,8 +927,8 @@ function createVertex() {
   models['nodes'].add(newNode);
   models['vertices'].add(newVertex);
 
-  models['graphs'].index(0)['nodes'].push(newNode.id);
-  models['webs'].index(0)['vertices'].push(newVertex.id);
+  models['webs'].index(-1)['vertices'].push(newVertex.id);
+  models['webs'].index(-1).graph['nodes'].push(newNode.id);
 
   drawSync();
 }
@@ -930,8 +939,8 @@ function makeEdge(start_vertex, end_vertex) {
   models['links'].add(newLink);
   models['edges'].add(newEdge);
 
-  models['graphs'].index(0)['links'].push(newLink.id);
-  models['webs'].index(0)['edges'].push(newEdge.id);
+  models['webs'].index(-1)['edges'].push(newEdge.id);
+  models['webs'].index(-1).graph['links'].push(newLink.id);
 
   drawSync();
 }

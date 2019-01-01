@@ -18,14 +18,14 @@
     text-align: center;
 }
 
-#webname {
+#docname {
     font-size: 20pt;
     font-weight: bold;
     background: transparent;
     border: none;
     color: #000;
 }
-#webname::placeholder {
+#docname::placeholder {
     color: #000;
     font-style: italic;
 }

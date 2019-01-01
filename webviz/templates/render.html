@@ -6,7 +6,7 @@
 {% endblock %}
 
 {% block content %}
-    <input id="webname" type="text" placeholder="Untitled" value="{{ web.name }}"/><br/>
+    <input id="docname" type="text" placeholder="Untitled" value="{{ doc.name }}"/><br/>
 
     <svg id="display"></svg>
 
@@ -17,7 +17,7 @@
     <button id='step'>Step</button>
 
     <div id="data" hidden>
-    	<p>{{web.json()}}</p>
+    	<p>{{doc.json()}}</p>
 	</div>
     <pre>{{pretty_json}}</pre>
 {% endblock %}

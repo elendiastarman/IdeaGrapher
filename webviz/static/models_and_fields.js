@@ -524,8 +524,9 @@ class BaseModel {
     }
 
     let id = data.id;
-    if (id in modelRefs[modelName]) {
-      return modelRefs[modelName][id];
+    let modRef = modelRefs[modelName][id];
+    if (modRef !== undefined) {
+      return modRef;
     }
 
     this.id = id;
@@ -589,15 +590,34 @@ class BaseModel {
   }
 }
 
-class Web extends BaseModel {
-  _modelName() { return "Web"; }
+class Document extends BaseModel {
+  _modelName() { return 'Document'; }
   _getFields() {
     return {
-      "name": new StringField({nullable: true, placeholder: "Untitled"}),
-      "graph": new ModelField("Graph", {}),
-      "vertices": new ListField(ModelField, ["Vertex", {}], {}),
-      "edges": new ListField(ModelField, ["Edge", {}], {}),
-      "data": new DictField({}),
+      'name': new StringField({default: '', placeholder: 'Untitled'}),
+      'webs': new ListField(ModelField, ['Web', {}], {}),
+      'data': new DictField({}),
+    }
+  }
+
+  _getDataFields() {
+    return [
+      ['name', true],
+      ['webs', false],
+      ['data', true],
+    ]
+  }
+}
+
+class Web extends BaseModel {
+  _modelName() { return 'Web'; }
+  _getFields() {
+    return {
+      'name': new StringField({nullable: true, placeholder: 'Untitled'}),
+      'graph': new ModelField('Graph', {}),
+      'vertices': new ListField(ModelField, ['Vertex', {}], {}),
+      'edges': new ListField(ModelField, ['Edge', {}], {}),
+      'data': new DictField({}),
     }
   }
 
@@ -830,6 +850,9 @@ class ModelLookup {
   }
 
   index(num) {
+    if (num < 0) {
+      num += this.modelIds.length;
+    }
     return this.models[this.modelIds[num]];
   }
 
@@ -868,14 +891,15 @@ class ModelLookup {
 
 var modelRefs = {};
 var modelMap = {
-  "Web": Web,
-  "Edge": Edge,
-  "Vertex": Vertex,
-  "Graph": Graph,
-  "Link": Link,
-  "Node": Node,
+  'Document': Document,
+  'Web': Web,
+  'Edge': Edge,
+  'Vertex': Vertex,
+  'Graph': Graph,
+  'Link': Link,
+  'Node': Node,
 }
-var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web'];
+var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web', 'Document'];
 for (let modelName in modelMap) {
   modelRefs[modelName] = {};
 }
