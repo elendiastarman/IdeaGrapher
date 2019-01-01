@@ -916,12 +916,27 @@ function identifyTargets(x, y, types) {
   return targets
 }
 
-function createVertex() {
+function handleDoubleClick() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[1][0][0]);
   if (pane != 'viz') {
     return;
   }
 
+  let vert_max_dist = function(vertex){
+    return Math.sqrt(vertex['node']['data']['size']);
+  };
+
+  let targets = identifyTargets(x, y, [['vertices', vert_max_dist]]);
+
+  if (targets.length <= 1) {
+    createVertex(x, y);
+  } else {
+    zoomToVertex(targets[0][0]);
+    // createSubweb(targets[0][0]);
+  }
+}
+
+function createVertex(x, y) {
   let newNode = new Node(Node._defaultData({'data': {'size': 100}}), false);
   let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id, 'data': {'shortname': 'text'}}), false);
   models['nodes'].add(newNode);
@@ -931,6 +946,43 @@ function createVertex() {
   models['webs'].index(-1).graph['nodes'].push(newNode.id);
 
   drawSync();
+}
+
+function zoomToVertex(vertex) {
+  console.log('zooming');
+  if (temp['zooming'] == undefined) {
+
+    let now = new Date();
+    temp['zooming'] = {
+      'startTime': now,
+      'duration': 400,  // milliseconds
+      'startX': panes['viz']['x'],
+      'startY': panes['viz']['y'],
+      'startS': panes['viz']['scale'],
+      'endX': -vertex['screen']['x'],
+      'endY': -vertex['screen']['y'],
+      'endS': Math.max(panes['global']['width'] * paneSplitPercent, panes['global']['height']) * 0.95 / Math.sqrt(vertex['node']['data']['size']) / 2,
+      'timer': setInterval(zoomToVertex, 10),
+    };
+
+  } else {
+
+    let tween = (new Date() - temp['zooming']['startTime']) / temp['zooming']['duration'];
+    let done = tween > 1;
+    tween = Math.min(tween, 1);
+
+    panes['viz']['x'] = temp['zooming']['startX'] + tween**0.2 * (temp['zooming']['endX'] - temp['zooming']['startX']);
+    panes['viz']['y'] = temp['zooming']['startY'] + tween**0.2 * (temp['zooming']['endY'] - temp['zooming']['startY']);
+    panes['viz']['scale'] = temp['zooming']['startS'] + tween**8 * (temp['zooming']['endS'] - temp['zooming']['startS']);
+    adjustVizClip();
+    draw();
+
+    if (done) {
+      clearInterval(temp['zooming']['timer']);
+      delete temp['zooming'];
+    }
+
+  }
 }
 
 function makeEdge(start_vertex, end_vertex) {
@@ -1044,7 +1096,7 @@ function multiClick() {
   if (mouseState['clicks'] == 1) {
     selectClosestElement();
   } else if (mouseState['clicks'] == 2) {
-    createVertex();
+    handleDoubleClick();
   }
 }
 
