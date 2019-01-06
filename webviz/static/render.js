@@ -114,6 +114,9 @@ function init() {
   panes['contents']['viz']['inner'].append('use')
     .attr('xlink:href', '#web' + rootWeb.id);
 
+  while (enterOrExitSubweb(-1));
+  draw();
+
   $('#start').on('click', start);
   $('#stop').on('click', stop);
   $('#step').on('click', step);
@@ -181,7 +184,9 @@ function initPanes() {
   sel['inner'] = sel['container'].select('foreignObject').append('xhtml:div')
     .attr('id', 'selectedInner')
     .attr('xmlns', 'http://www.w3.org/1999/xhtml')
-    .style('overflow', 'auto');
+    .style('overflow', 'auto')
+    .style('width', '100%')
+    .style('height', '100%');
 }
 
 function pairKey(vertex1id, vertex2id) {
@@ -396,44 +401,56 @@ function drawSync() {
     eData.exit().remove();
   }
 
+  for (let vertex of models['vertices']) {
+    if (vertex.subwebs.value.length > 0) {
+      d3.select('[id=\'' + vertex.id + '\']').select('.subweb').selectAll('use').data(vertex.subwebs.serialize())
+        .enter().append('use')
+          .attr('xlink:href', function(d){ return '#web' + d; });
+    }
+  }
+
   draw();
 }
 
 function draw() {
-  let vScale = currentWebs[0]['web']['screen']['scale'];
+  let vScale = 1;
 
-  let wData = svg.select('#webs').selectAll('.web').data(models['webs'].modelIds, function(d){ return d; });
-  wData
-    .attr('transform', function(d){
-      let screen = models['webs'][d]['screen'];
-      return 'translate(' + screen['x'] * screen['scale'] + ',' + screen['y'] * screen['scale'] + ') scale(' + screen['scale'] + ')'
-    });
+  for (let index in currentWebs) {
+    let web = currentWebs[index]['web'];
+    vScale *= web['screen']['scale'];
 
-  let vData = svg.select('#webs').selectAll('.vertices').selectAll('.vertex').data(models['vertices'].modelIds, function(d){ return d; });
-  vData
-    .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')' });
-  vData.select('circle')
-    .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); })
-    .attr('stroke-width', (2 / vScale) + 'px')
-    .attr('fill', function(d){ return models['vertices'][d]['screen']['color'] || 'gray'; });
-  vData.selectAll('text')
-    .text(function(d){ return models['vertices'][d]['data']['shortname']})
-    .attr('font-size', 16 / vScale );
-  vData.select('text.outer')
-    .style('stroke-width', 5 / vScale);
-  vData.select('text.inner')
-    .style('stroke-width', 1 / vScale);
+    d3.select('#web' + web.id)
+      .attr('transform', function(d){
+        let screen = models['webs'][d]['screen'];
+        return 'translate(' + screen['x'] * screen['scale'] + ',' + screen['y'] * screen['scale'] + ') scale(' + screen['scale'] + ')'
+      });
 
-  vData.select('.subwebContainer').select('circle')
-    .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); });
+    let vData = d3.select('#web' + web.id).select('.vertices').selectAll('.vertex').data(web['vertices'].serialize(), function(d){ return d; });
+    vData
+      .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')' });
+    vData.select('circle')
+      .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); })
+      .attr('stroke-width', (2 / vScale) + 'px')
+      .attr('fill', function(d){ return models['vertices'][d]['screen']['color'] || 'gray'; });
+    vData.selectAll('text')
+      .text(function(d){ return models['vertices'][d]['data']['shortname']})
+      .attr('font-size', 16 / vScale );
+    vData.select('text.outer')
+      .style('stroke-width', 5 / vScale);
+    vData.select('text.inner')
+      .style('stroke-width', 1 / vScale);
 
-  let eData = svg.select('#webs').selectAll('.edges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
-  eData.selectAll('line')
-    .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
-    .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
-    .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
-    .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
-    .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
+    vData.select('.subwebContainer').select('circle')
+      .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); });
+
+    let eData = d3.select('#web' + web.id).select('.edges').selectAll('.edge').data(web['edges'].serialize(), function(d){ return d; });
+    eData.selectAll('line')
+      .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
+      .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
+      .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
+      .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
+      .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
+  }
 }
 
 function populateSelectedPane(element) {
@@ -817,13 +834,19 @@ function respondToScrollInput() {
   if (!mouseState['scrolled'] || mouseState['scroll'][1] == 0) {
     return false;
   }
-
   mouseState['scrolled'] = false;
 
-  let [pane, mouseX, mouseY] = normalizeMousePosition(mouseEvents[4][0]);
+  let [pane, frame, realX, realY, normX, normY] = whichPane(mouseEvents[4][0]);
   if (pane != 'viz') {
     return false;
   }
+
+  let rootWeb = currentWebs[0]['web'];
+  let mouseX = normX
+      mouseY = normY;
+
+  mouseX = (normX - frame['dimensions']['width'] / 2) / rootWeb['screen']['scale'] - rootWeb['screen']['x'];
+  mouseY = (normY - frame['dimensions']['height'] / 2) / rootWeb['screen']['scale'] - rootWeb['screen']['y'];
 
   let dispX, dispY, scaleFactor;
 
@@ -833,11 +856,11 @@ function respondToScrollInput() {
     scaleFactor = 1 / 1.2;
   }
 
-  dispX = mouseX + currentWebs[0]['web']['screen']['x'];
-  dispY = mouseY + currentWebs[0]['web']['screen']['y'];
-  currentWebs[0]['web']['screen']['scale'] *= scaleFactor;
-  currentWebs[0]['web']['screen']['x'] += dispX * (1 / scaleFactor - 1);
-  currentWebs[0]['web']['screen']['y'] += dispY * (1 / scaleFactor - 1);
+  dispX = mouseX + rootWeb['screen']['x'];
+  dispY = mouseY + rootWeb['screen']['y'];
+  rootWeb['screen']['scale'] *= scaleFactor;
+  rootWeb['screen']['x'] += dispX * (1 / scaleFactor - 1);
+  rootWeb['screen']['y'] += dispY * (1 / scaleFactor - 1);
 
   enterOrExitSubweb(mouseState['scroll'][1]);
 
@@ -847,7 +870,19 @@ function respondToScrollInput() {
 function enterOrExitSubweb(scrollDirection) {
   let topWeb = currentWebs[currentWebs.length - 1];
   let rootWeb = currentWebs[0]['web']
+
+  let frame;
+  for (let index in panes['frames']) {
+    frame = panes['frames'][index];
+    if (frame['contents'] == 'viz') {
+      break;
+    }
+  }
+  let frameWidth = frame['dimensions']['width'],
+      frameHeight = frame['dimensions']['height'];
+
   console.log('topWeb:', topWeb);
+  console.log('frame:', frame);
 
   if (scrollDirection < 0) {
     // zooming in; can enter subweb
@@ -861,7 +896,7 @@ function enterOrExitSubweb(scrollDirection) {
       let xDiff = Math.abs(vertex['screen']['x'] + rootWeb['screen']['x']) * rootWeb['screen']['scale'];
       let yDiff = Math.abs(vertex['screen']['y'] + rootWeb['screen']['y']) * rootWeb['screen']['scale'];
 
-      if (visualSize > threshold && xDiff < width * paneSplitPercent / 2 && yDiff < height / 2) {
+      if (visualSize > threshold && xDiff < frameWidth / 2 && yDiff < frameHeight / 2) {
         let distFromCenter = xDiff**2 + yDiff**2;
         if (chosenVertex == null || distFromCenter < chosenDist) {
           chosenVertex = vertex;
@@ -871,7 +906,7 @@ function enterOrExitSubweb(scrollDirection) {
     }
 
     if (chosenVertex == null || chosenVertex.subwebs.value.length == 0) {
-      return;
+      return false;
     }
 
     // console.log('chosenVertex:', chosenVertex);
@@ -879,17 +914,21 @@ function enterOrExitSubweb(scrollDirection) {
     // console.log('subwebs:', chosenVertex.subwebs.value);
     currentWebs.push({'web': chosenVertex.subwebs.value[0], 'parent': chosenVertex, 'scale': 1});
 
+    return true;
+
   } else if (scrollDirection > 0) {
     // zooming out; can exit subweb
     if (currentWebs.length <= 1) {
-      return;
+      return false;
     }
 
-    if (rootWeb['screen']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < Math.min(width, height)) {
+    if (rootWeb['screen']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < Math.min(frameWidth, frameHeight)) {
       console.log('exiting subweb');
       d3.select('[id=\'' + topWeb['parent'].id + '\']').select('.subwebContainer').style('visibility', 'hidden');
       currentWebs.pop();
     }
+
+    return true;
   }
 }
 
@@ -984,8 +1023,13 @@ function dragVertex(vertex) {
       vertex = temp['dragVertex']['vertex'];
     }
 
-    vertex['screen']['x'] = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / currentWebs[currentWebs.length - 1]['web']['screen']['scale'] + temp['dragVertex']['startX'];
-    vertex['screen']['y'] = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / currentWebs[currentWebs.length - 1]['web']['screen']['scale'] + temp['dragVertex']['startY'];
+    let vScale = 1;
+    for (let item of currentWebs) {
+      vScale *= item['web']['screen']['scale'];
+    }
+
+    vertex['screen']['x'] = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / vScale + temp['dragVertex']['startX'];
+    vertex['screen']['y'] = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / vScale + temp['dragVertex']['startY'];
   }
 }
 
@@ -1018,8 +1062,21 @@ function normalizeMousePosition(event) {
       y = normY;
 
   if (pane == 'viz') {
-    x = (normX - frame['dimensions']['width'] / 2) / rootWeb['screen']['scale'] - rootWeb['screen']['x'];
-    y = (normY - frame['dimensions']['height'] / 2) / rootWeb['screen']['scale'] - rootWeb['screen']['y'];
+    x = (normX - frame['dimensions']['width'] / 2);
+    y = (normY - frame['dimensions']['height'] / 2);
+
+    for (let index in currentWebs) {
+      let parent = currentWebs[index]['parent'];
+      if (parent) {
+        // console.log(currentWebs[index]['parent']);
+        x -= parent['screen']['x'];
+        y -= parent['screen']['y'];
+      }
+
+      let web = currentWebs[index]['web'];
+      x = x / web['screen']['scale'] - web['screen']['x'];
+      y = y / web['screen']['scale'] - web['screen']['y'];
+    }
   }
 
   return [pane, x, y];
@@ -1131,8 +1188,9 @@ function makeEdge(start_vertex, end_vertex) {
   models['links'].add(newLink);
   models['edges'].add(newEdge);
 
-  models['webs'].index(-1)['edges'].push(newEdge.id);
-  models['webs'].index(-1).graph['links'].push(newLink.id);
+  let topWeb = currentWebs[currentWebs.length - 1]['web'];
+  topWeb['edges'].push(newEdge.id);
+  topWeb.graph['links'].push(newLink.id);
 
   drawSync();
 }
@@ -1140,6 +1198,16 @@ function makeEdge(start_vertex, end_vertex) {
 function zoomToVertex(vertex) {
   console.log('zooming');
   let rootWeb = currentWebs[0]['web'];
+
+  let frame;
+  for (let index in panes['frames']) {
+    frame = panes['frames'][index];
+    if (frame['contents'] == 'viz') {
+      break;
+    }
+  }
+  let frameWidth = frame['dimensions']['width'],
+      frameHeight = frame['dimensions']['height'];
 
   if (temp['zooming'] == undefined) {
 
@@ -1152,7 +1220,7 @@ function zoomToVertex(vertex) {
       'startS': rootWeb['screen']['scale'],
       'endX': -vertex['screen']['x'],
       'endY': -vertex['screen']['y'],
-      'endS': Math.max(width * paneSplitPercent, height) * 0.95 / Math.sqrt(vertex['node']['data']['size']) / 2,
+      'endS': Math.max(frameWidth, frameHeight) * 0.95 / Math.sqrt(vertex['node']['data']['size']) / 2,
       'timer': setInterval(zoomToVertex, 10),
     };
 
@@ -1165,7 +1233,7 @@ function zoomToVertex(vertex) {
     rootWeb['screen']['x'] = temp['zooming']['startX'] + tween**0.2 * (temp['zooming']['endX'] - temp['zooming']['startX']);
     rootWeb['screen']['y'] = temp['zooming']['startY'] + tween**0.2 * (temp['zooming']['endY'] - temp['zooming']['startY']);
     rootWeb['screen']['scale'] = temp['zooming']['startS'] + tween**8 * (temp['zooming']['endS'] - temp['zooming']['startS']);
-    // adjustVizClip();
+
     draw();
 
     if (done) {
@@ -1211,10 +1279,12 @@ function selectClosestElement() {
         end = target;
         break;
       }
-
     }
 
-    if (end) {
+    console.log(temp['makingEdge']['start']);
+    console.log(end);
+
+    if (end && end.id != temp['makingEdge']['start'].id) {
       makeEdge(temp['makingEdge']['start'], end);
     }
 

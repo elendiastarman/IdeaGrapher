@@ -1131,8 +1131,6 @@ function saveDirtyModels() {
           clearInterval(saveTimer);
         }
       }
-
-      drawSync();
     },
     error: function(responseData) {
       console.log('ERROR ', responseData);
