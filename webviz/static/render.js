@@ -5,29 +5,62 @@
 var svg = d3.select('#display');
 
 var panes = {
-  'global': {
-    'width': 0,
-    'height': 0,
-  },
-  'layout': {
-
-  },
-  'viz': {
-    'pane': null,
-    'clip': null,
-    'contents': null,
-    'x': 0,
-    'y': 0,
-    'scale': 1,
-  },
-  'selected': {
-    'pane': null,
-    'clip': null,
-    'contents': null,
-    'x': 0,
-    'y': 0,
-    'scale': 1,
-  },
+  'dividers': [
+    {
+      'orientation': 'vertical',
+      'percentage': 0.75,
+      'border': null,
+    },
+  ],
+  'frames': [
+    {
+      'bounds': [null, 0, null, null],  // top right bottom left
+      'position': {'x': 0, 'y': 0},
+      'dimensions': {'width': 0, 'height': 0},
+      'frame': null,
+      'contents': 'viz',
+      'clippath': null,
+    },
+    {
+      'bounds': [null, null, null, 0],
+      'position': {'x': 0, 'y': 0},
+      'dimensions': {'width': 0, 'height': 0},
+      'frame': null,
+      'contents': 'selected',
+      'clippath': null,
+    },
+  ],
+  'contents': {
+    'viz': {
+      'shortname': 'Visual',
+      'name': 'viz',
+      'container': null,
+      'inner': null,
+      'reposition': function(container, x, y, width, height){
+        container.select('#vizInner').attr('transform', 'translate(' + (width / 2) + ', ' + (height / 2) + ')');
+      },
+    },
+    'selected': {
+      'shortname': 'Selected',
+      'name': 'selected',
+      'container': null,
+      'inner': null,
+      'reposition': function(container, x, y, width, height){
+        container.select('foreignObject')
+          .attr('x', x + 5)
+          .attr('y', y + 5)
+          .attr('width', width - 10)
+          .attr('height', height - 10);
+      },
+    },
+    'rules': {
+      'shortname': 'Rules',
+      'name': 'rules',
+      'container': null,
+      'inner': null,
+      'reposition': null,
+    },
+  }
 };
 
 // For things like dragging or panning where it's useful to record the initial mouse position
@@ -44,12 +77,11 @@ var models = {
   'documents': new ModelLookup(Document),
 };
 
-// Miscellaneous variables that haven't been reorganized yet
-var selected = [],
-    pairs = {},
-    paneSplitPercent = 0.75,
-    paneSplitBorder = null,
-    currentWebs = [];
+// Explicitly global variables
+var width, height,  // of the whole SVG
+    pairs = {},  // makes it easy to look up whether two vertices are connected or not
+    selected = [],  // things that are currently selected
+    currentWebs = [];  // stack of webs currently in
 
 $(document).ready(function(){ init(); });
 
@@ -58,47 +90,29 @@ function init() {
   startTime = Date.now();
 
   loadData();
-  currentWebs.push({'web': models['webs'].index(0), 'parent': null, 'scale': 1});
+
+  let rootWeb = models['documents'].index(0)['webs'].value[0];
+  currentWebs.push({'web': rootWeb, 'parent': null, 'scale': 1});
 
   svg.style('border', '1px solid black');
   svg.append('rect')
     .attr('id', 'background')
-    .attr('fill', 'white');
+    .attr('fill', 'red');
 
-  let svgDefs = svg.append('defs');
-  panes['viz']['clip'] = svgDefs.append('clipPath').attr('id', 'vizClip');
-  panes['viz']['clip'].append('rect');
-  panes['selected']['clip'] = svgDefs.append('clipPath').attr('id', 'selectedClip');
-  panes['selected']['clip'].append('rect');
+  let defs = svg.append('defs');
+  defs.append('g').attr('id', 'clippaths');
+  defs.append('g').attr('id', 'webs');
 
-  paneSplitBorder = svg.append('rect')
-    .attr('id', '#paneSplitBorder')
-    .attr('y', 0)
-    .attr('width', 3)
-    .style('fill', 'black')
-    .call(d3.drag().on('drag', dragPaneSplit));
-
-  panes['viz']['pane'] = svg.append('g')
-    .attr('id', 'vizPane')
-    .style('clip-path', 'url(#vizClip)');
-  panes['viz']['pane'].append('g').attr('id', 'vizHighlights');
-  panes['viz']['pane'].append('g').attr('id', 'vizEdges');
-  panes['viz']['pane'].append('g').attr('id', 'vizVertices');
-
-  panes['selected']['pane'] = svg.append('g')
-    .attr('id', 'selectedPane')
-    .style('clip-path', 'url(#selectedClip)');
-  panes['selected']['pane'].append('foreignObject')
-    .attr('x', 5)
-    .attr('y', 5);
-  panes['selected']['contents'] = panes['selected']['pane'].select('foreignObject').append('xhtml:div')
-    .attr('id', 'selectedContent')
-    .attr('xmlns', 'http://www.w3.org/1999/xhtml')
-    .style('overflow', 'auto');
+  initDividers();
+  initFrames();
+  initPanes();
 
   resizeSVG();
   populateSelectedPane();
   drawSync();
+
+  panes['contents']['viz']['inner'].append('use')
+    .attr('xlink:href', '#web' + rootWeb.id);
 
   $('#start').on('click', start);
   $('#stop').on('click', stop);
@@ -119,6 +133,55 @@ function init() {
   // start();
   let delay = 20;
   loopTimer = setInterval(step, delay);
+}
+
+function initDividers() {
+  for (let index in panes['dividers']) {
+    let border = svg.append('rect')
+      .attr('id', 'paneDivider' + index)
+      .style('fill', 'black')
+      .call(d3.drag().on('drag', dragDivider));
+
+    if (panes['dividers'][index]['orientation'] == 'vertical') {
+      border.attr('y', 0).attr('width', 3);
+    } else if (panes['dividers'][index]['orientation'] == 'horizontal') {
+      border.attr('x', 0).attr('height', 3);
+    }
+
+    panes['dividers'][index]['border'] = border;
+  }
+}
+
+function initFrames() {
+  for (let index in panes['frames']) {
+    let frame = svg.append('g')
+      .attr('id', 'frame' + index);
+    frame.append('rect')
+      .style('fill', 'white');
+    let clippath = svg.select('#clippaths').append('clipPath')
+      .attr('id', 'clippath' + index)
+      .append('rect');
+
+    panes['frames'][index]['frame'] = frame;
+    panes['frames'][index]['clippath'] = clippath;
+  }
+}
+
+function initPanes() {
+  let viz = panes['contents']['viz'];
+  viz['container'] = svg.append('g')
+    .attr('id', 'vizContainer');
+  viz['inner'] = viz['container'].append('g')
+    .attr('id', 'vizInner');
+
+  let sel = panes['contents']['selected'];
+  sel['container'] = svg.append('g')
+    .attr('id', 'selectedContainer');
+  sel['container'].append('foreignObject');
+  sel['inner'] = sel['container'].select('foreignObject').append('xhtml:div')
+    .attr('id', 'selectedInner')
+    .attr('xmlns', 'http://www.w3.org/1999/xhtml')
+    .style('overflow', 'auto');
 }
 
 function pairKey(vertex1id, vertex2id) {
@@ -201,118 +264,152 @@ function resizeSVG() {
   let totalWidth = $(window).width(),
       totalHeight = $(window).height();
 
-  let width = totalWidth - 15;
-  let height = totalHeight - 150;
-  panes['global']['width'] = width;
-  panes['global']['height'] = height;
+  width = totalWidth - 15;
+  height = totalHeight - 150;
 
   svg.attr('width', width).attr('height', height);
   svg.select('#background')
     .attr('width', width)
     .attr('height', height);
 
-  paneSplitBorder.attr('height', height).attr('x', paneSplitPercent * width - 1);
+  for (let index in panes['dividers']) {
+    let div = panes['dividers'][index];
+    if (div['orientation'] == 'vertical') {
+      div['border']
+        .attr('height', height)
+        .attr('x', div['percentage'] * width - 1);
+    } else if (div['orientation'] == 'horizontal') {
+      div['border']
+        .attr('width', width)
+        .attr('y', div['percentage'] * height - 1);
+    }
+  }
 
-  adjustVizClip();
-  adjustSelectedClip();
-  draw();
+  adjustPanes();
 }
 
-function dragPaneSplit() {
-  let x = d3.event.x,
-      y = d3.event.y;
+function dragDivider() {
+  let x = Math.max(Math.min(d3.event.x, width - 100), 100),
+      y = Math.max(Math.min(d3.event.y, height - 100), 100);
+  
+  let index = Number(/(\d+)/.exec(d3.select(this).attr('id'))[0]);
+  let div = panes['dividers'][index];
 
-  paneSplitPercent = x / width;
-  paneSplitBorder.attr('x', paneSplitPercent * width - 1);
+  if (div['orientation'] == 'vertical') {
+    let newPercent = x / width;
+    div['percentage'] = newPercent;
+    div['border'].attr('x', newPercent * width - 1);
+  } else if (div['orientation'] == 'vertical') {
+    let newPercent = y / height;
+    div['percentage'] = newPercent;
+    div['border'].attr('y', newPercent * height - 1);
+  }
 
-  adjustVizClip();
-  adjustSelectedClip();
-  draw();
+  adjustPanes();
 }
 
-function adjustVizClip() {
-  let vX = panes['viz']['x'],
-      vY= panes['viz']['y'],
-      vScale = panes['viz']['scale'],
-      width = panes['global']['width'],
-      height = panes['global']['height'];
+function adjustPanes() {
+  for (let index in panes['frames']) {
+    let frame = panes['frames'][index];
+    let top = frame['bounds'][0] == null ? 0 : panes['dividers'][ frame['bounds'][0] ]['percentage'] * height + 1,
+        right = frame['bounds'][1] == null ? width : panes['dividers'][ frame['bounds'][1] ]['percentage'] * width - 1,
+        bottom = frame['bounds'][2] == null ? height : panes['dividers'][ frame['bounds'][2] ]['percentage'] * height - 1,
+        left = frame['bounds'][3] == null ? 0 : panes['dividers'][ frame['bounds'][3] ]['percentage'] * width + 1;
 
-  panes['viz']['clip'].select('rect')
-    .attr('x', -vX - width * paneSplitPercent / vScale / 2)
-    .attr('y', -vY- height / vScale / 2)
-    .attr('width', width * paneSplitPercent / vScale)
-    .attr('height', height / vScale);
-}
+    frame['position'] = {'x': left, 'y': top};
+    frame['dimensions'] = {'width': right - left, 'height': bottom - top};
 
-function adjustSelectedClip() {
-  let width = panes['global']['width'],
-      height = panes['global']['height'];
+    frame['frame'].select('rect')
+      .attr('x', left)
+      .attr('y', top)
+      .attr('width', right - left)
+      .attr('height', bottom - top);
+    frame['clippath']
+      .attr('x', left)
+      .attr('y', top)
+      .attr('width', right - left)
+      .attr('height', bottom - top);
 
-  panes['selected']['pane'].select('foreignObject')
-    .attr('width', width * (1 - paneSplitPercent) - 10)
-    .attr('height', height - 10);
-  panes['selected']['contents']
-    .style('width', '100%')
-    .style('height', '100%');
-  panes['selected']['clip'].select('rect')
-    .attr('x', 0)
-    .attr('y', 0)
-    .attr('width', width * (1 - paneSplitPercent) - 1)
-    .attr('height', height);
+    if (frame['contents']) {
+      let contents = panes['contents'][frame['contents']];
+      contents['reposition'](contents['container'], left, top, right - left, bottom - top);
+      contents['container'].attr('clip-path', 'url(#clippath' + index + ')');
+    }
+  }
+
 }
 
 function drawSync() {
-  let vData = panes['viz']['pane'].select('#vizVertices').selectAll('.vertex').data(models['vertices'].modelIds, function(d){ return d; });
-  let vEnterGroup = vData.enter().append('g')
-    .attr('class', 'vertex')
-    .attr('id', function(d){ return d; });
-  vEnterGroup.append('circle')
-    .attr('stroke', 'black');
-  vEnterGroup.append('text')  // text: white outline
-    .attr('class', 'outer')
-    .attr('text-anchor', 'middle')
-    .attr('alignment-baseline', 'central')
-    .style('fill', 'white')
-    .style('stroke', 'black');
-  vEnterGroup.append('text')  // text: black core
-    .attr('class', 'inner')
-    .attr('text-anchor', 'middle')
-    .attr('alignment-baseline', 'central')
-    .style('fill', 'white')
-    .style('stroke', 'white');
+  let websDef = svg.select('#webs');
 
-  let subwebContainers = vEnterGroup.append('g')
-    .attr('class', 'subwebContainer')
-    .style('visibility', 'hidden');
-  subwebContainers.append('circle')
-    .attr('class', 'backing')
-    .style('fill', 'white');
-  subwebContainers.append('g')
-    .attr('class', 'subweb');
+  let wData = websDef.selectAll('.web').data(models['webs'].modelIds, function(d){ return d; });
+  let wEnterGroup = wData.enter().append('g')
+    .attr('class', 'web')
+    .attr('id', function(d){ return 'web' + d; });
+  wEnterGroup.append('g').attr('class', 'highlights');
+  wEnterGroup.append('g').attr('class', 'edges');
+  wEnterGroup.append('g').attr('class', 'vertices');
 
-  vData.exit().remove();
+  let webId, vData, vEnterGroup, eData, eEnterGroup, subwebContainers;
 
-  let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
-  let eGroup = eData.enter().append('g')
-    .attr('class', 'edge')
-    .attr('id', function(d){ return d; });
-  eGroup.append('line')
-    .attr('stroke', 'black')
-    .attr('stroke-wdith', '2px');
+  for (let web of models['webs']) {
+    webId = web.id;
 
-  eData.exit().remove();
+    vData = websDef.select('[id=\'web' + webId + '\']').select('.vertices').selectAll('.vertex').data(web['vertices'].serialize(), function(d){ return d; });
+    vEnterGroup = vData.enter().append('g')
+      .attr('class', 'vertex')
+      .attr('id', function(d){ return d; });
+    vEnterGroup.append('circle')
+      .attr('stroke', 'black');
+    vEnterGroup.append('text')  // text: white outline
+      .attr('class', 'outer')
+      .attr('text-anchor', 'middle')
+      .attr('alignment-baseline', 'central')
+      .style('fill', 'white')
+      .style('stroke', 'black');
+    vEnterGroup.append('text')  // text: black core
+      .attr('class', 'inner')
+      .attr('text-anchor', 'middle')
+      .attr('alignment-baseline', 'central')
+      .style('fill', 'white')
+      .style('stroke', 'white');
+
+    subwebContainers = vEnterGroup.append('g')
+      .attr('class', 'subwebContainer')
+      .style('visibility', 'hidden');
+    subwebContainers.append('circle')
+      .attr('class', 'backing')
+      .style('fill', 'white');
+    subwebContainers.append('g')
+      .attr('class', 'subweb');
+
+    vData.exit().remove();
+
+    eData = websDef.select('[id=\'web' + webId + '\']').selectAll('.edges').selectAll('.edge').data(web['edges'].serialize(), function(d){ return d; });
+    eEnterGroup = eData.enter().append('g')
+      .attr('class', 'edge')
+      .attr('id', function(d){ return d; });
+    eEnterGroup.append('line')
+      .attr('stroke', 'black')
+      .attr('stroke-wdith', '2px');
+
+    eData.exit().remove();
+  }
 
   draw();
 }
 
 function draw() {
-  let vX = panes['viz']['x'],
-      vY = panes['viz']['y'],
-      vScale = panes['viz']['scale'],
-      width = panes['global']['width'],
-      height = panes['global']['height'];
+  let vScale = currentWebs[0]['web']['screen']['scale'];
 
-  let vData = panes['viz']['pane'].select('#vizVertices').selectAll('.vertex').data(models['vertices'].modelIds, function(d){ return d; });
+  let wData = svg.select('#webs').selectAll('.web').data(models['webs'].modelIds, function(d){ return d; });
+  wData
+    .attr('transform', function(d){
+      let screen = models['webs'][d]['screen'];
+      return 'translate(' + screen['x'] * screen['scale'] + ',' + screen['y'] * screen['scale'] + ') scale(' + screen['scale'] + ')'
+    });
+
+  let vData = svg.select('#webs').selectAll('.vertices').selectAll('.vertex').data(models['vertices'].modelIds, function(d){ return d; });
   vData
     .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')' });
   vData.select('circle')
@@ -330,25 +427,23 @@ function draw() {
   vData.select('.subwebContainer').select('circle')
     .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); });
 
-  let eData = panes['viz']['pane'].select('#vizEdges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
+  let eData = svg.select('#webs').selectAll('.edges').selectAll('.edge').data(models['edges'].modelIds, function(d){ return d; });
   eData.selectAll('line')
     .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
     .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
     .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
     .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
     .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
-
-  panes['viz']['pane'].attr('transform', 'translate(' + (vX * vScale + width * paneSplitPercent / 2) + ', ' + (vY * vScale + height / 2) + ') scale(' + (vScale) + ')');
-  panes['selected']['pane'].attr('transform', 'translate(' + (width * paneSplitPercent) + ', 0)');
 }
 
 function populateSelectedPane(element) {
-  panes['selected']['contents'].selectAll('*').remove();
+  let inner = panes['contents']['selected']['inner']
+  inner.selectAll('*').remove();
 
   if (element != null) {
-    element._populateContainer(panes['selected']['contents']);
+    element._populateContainer(inner);
   } else {
-    currentWebs[currentWebs.length - 1]['web']._populateContainer(panes['selected']['contents']);
+    currentWebs[currentWebs.length - 1]['web']._populateContainer(inner);
   }
 }
 
@@ -380,7 +475,7 @@ function step() {
   }
 
   if (changed) {
-    adjustVizClip();
+    // populateSelectedPane(selected[selected.length - 1]);
     draw();
   }
 }
@@ -719,10 +814,7 @@ function updateMouseState() {
 }
 
 function respondToScrollInput() {
-  if (!mouseState['scrolled']) {
-    return false;
-  }
-  if(mouseState['scroll'][1] == 0) {
+  if (!mouseState['scrolled'] || mouseState['scroll'][1] == 0) {
     return false;
   }
 
@@ -741,11 +833,11 @@ function respondToScrollInput() {
     scaleFactor = 1 / 1.2;
   }
 
-  dispX = panes['viz']['x'] + mouseX;
-  dispY = panes['viz']['y'] + mouseY;
-  panes['viz']['x'] += dispX * (1 / scaleFactor - 1);
-  panes['viz']['y'] += dispY * (1 / scaleFactor - 1);
-  panes['viz']['scale'] *= scaleFactor;
+  dispX = mouseX + currentWebs[0]['web']['screen']['x'];
+  dispY = mouseY + currentWebs[0]['web']['screen']['y'];
+  currentWebs[0]['web']['screen']['scale'] *= scaleFactor;
+  currentWebs[0]['web']['screen']['x'] += dispX * (1 / scaleFactor - 1);
+  currentWebs[0]['web']['screen']['y'] += dispY * (1 / scaleFactor - 1);
 
   enterOrExitSubweb(mouseState['scroll'][1]);
 
@@ -754,6 +846,7 @@ function respondToScrollInput() {
 
 function enterOrExitSubweb(scrollDirection) {
   let topWeb = currentWebs[currentWebs.length - 1];
+  let rootWeb = currentWebs[0]['web']
   console.log('topWeb:', topWeb);
 
   if (scrollDirection < 0) {
@@ -763,12 +856,12 @@ function enterOrExitSubweb(scrollDirection) {
 
     for (let index in topWeb['web'].vertices.value) {
       let vertex = topWeb['web'].vertices.value[index];
-      let visualSize = panes['viz']['scale'] * Math.sqrt(vertex['node']['data']['size']) * 2;
-      let threshold = Math.min(panes['global']['width'], panes['global']['height']);
-      let xDiff = Math.abs(vertex['screen']['x'] + panes['viz']['x']) * panes['viz']['scale'];
-      let yDiff = Math.abs(vertex['screen']['y'] + panes['viz']['y']) * panes['viz']['scale'];
+      let visualSize = rootWeb['screen']['scale'] * Math.sqrt(vertex['node']['data']['size']) * 2;
+      let threshold = Math.min(width, height);
+      let xDiff = Math.abs(vertex['screen']['x'] + rootWeb['screen']['x']) * rootWeb['screen']['scale'];
+      let yDiff = Math.abs(vertex['screen']['y'] + rootWeb['screen']['y']) * rootWeb['screen']['scale'];
 
-      if (visualSize > threshold && xDiff < panes['global']['width'] * paneSplitPercent / 2 && yDiff < panes['global']['height'] / 2) {
+      if (visualSize > threshold && xDiff < width * paneSplitPercent / 2 && yDiff < height / 2) {
         let distFromCenter = xDiff**2 + yDiff**2;
         if (chosenVertex == null || distFromCenter < chosenDist) {
           chosenVertex = vertex;
@@ -792,7 +885,7 @@ function enterOrExitSubweb(scrollDirection) {
       return;
     }
 
-    if (panes['viz']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < Math.min(panes['global']['width'], panes['global']['height'])) {
+    if (rootWeb['screen']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < Math.min(width, height)) {
       console.log('exiting subweb');
       d3.select('[id=\'' + topWeb['parent'].id + '\']').select('.subwebContainer').style('visibility', 'hidden');
       currentWebs.pop();
@@ -869,14 +962,13 @@ function pan() {
   if(mouseState["buttons"] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'viz') {
     if (temp['pan'] == null) {
       temp['pan'] = {
-        'startX': panes['viz']['x'],
-        'startY': panes['viz']['y'],
+        'startX': currentWebs[0]['web']['screen']['x'],
+        'startY': currentWebs[0]['web']['screen']['y'],
       };
     }
 
-    panes['viz']['x'] = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / panes['viz']['scale'] + temp['pan']['startX'];
-    panes['viz']['y'] = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / panes['viz']['scale'] + temp['pan']['startY'];
-    adjustVizClip();
+    currentWebs[0]['web']['screen']['x'] = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / currentWebs[0]['web']['screen']['scale'] + temp['pan']['startX'];
+    currentWebs[0]['web']['screen']['y'] = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / currentWebs[0]['web']['screen']['scale'] + temp['pan']['startY'];
   }
 }
 
@@ -892,38 +984,42 @@ function dragVertex(vertex) {
       vertex = temp['dragVertex']['vertex'];
     }
 
-    vertex['screen']['x'] = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / panes['viz']['scale'] + temp['dragVertex']['startX'];
-    vertex['screen']['y'] = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / panes['viz']['scale'] + temp['dragVertex']['startY'];
+    vertex['screen']['x'] = (mouseEvents[0][0][1].x - mouseEvents[0][0][0].x) / currentWebs[currentWebs.length - 1]['web']['screen']['scale'] + temp['dragVertex']['startX'];
+    vertex['screen']['y'] = (mouseEvents[0][0][1].y - mouseEvents[0][0][0].y) / currentWebs[currentWebs.length - 1]['web']['screen']['scale'] + temp['dragVertex']['startY'];
   }
 }
 
 function whichPane(event) {
   let boundingRect = document.getElementById('display').getBoundingClientRect();
-  let realX = event.x - boundingRect.x;
-  let realY = event.y - boundingRect.y;
-  let pane = null;
+  let realX = event.x - boundingRect.x,
+      realY = event.y - boundingRect.y,
+      normX = realX,
+      normY = realY;
+  let pane = null, frame = null;
 
-  if (realX < panes['global']['width'] * paneSplitPercent) {
-    pane = 'viz';
-  } else {
-    pane = 'selected';
+  for (let index in panes['frames']) {
+    frame = panes['frames'][index];
+    normX = realX - frame['position']['x'];
+    normY = realY - frame['position']['y'];
+
+    if (0 <= normX && normX <= frame['dimensions']['width'] && 0 <= normY && normY <= frame['dimensions']['height']) {
+      pane = frame['contents'];
+      break;
+    }
   }
 
-  return [pane, realX, realY];
+  return [pane, frame, realX, realY, normX, normY];
 }
 
 function normalizeMousePosition(event) {
-  let [pane, realX, realY] = whichPane(event);
-  let x, y;
-  let width = panes['global']['width'],
-      height = panes['global']['height'];
+  let [pane, frame, realX, realY, normX, normY] = whichPane(event);
+  let rootWeb = currentWebs[0]['web'];
+  let x = normX
+      y = normY;
 
   if (pane == 'viz') {
-    x = (realX - width * paneSplitPercent / 2) / panes['viz']['scale'] - panes['viz']['x'];
-    y = (realY - height / 2) / panes['viz']['scale'] - panes['viz']['y'];
-  } else if (pane == 'selected') {
-    x = realX - width * paneSplitPercent;
-    y = realY - height;
+    x = (normX - frame['dimensions']['width'] / 2) / rootWeb['screen']['scale'] - rootWeb['screen']['x'];
+    y = (normY - frame['dimensions']['height'] / 2) / rootWeb['screen']['scale'] - rootWeb['screen']['y'];
   }
 
   return [pane, x, y];
@@ -975,7 +1071,7 @@ function identifyTargets(x, y, types) {
     }
   }
 
-  targets.sort(function(a, b){ return a[1] - b[1]; })
+  targets.sort(function(a, b){ return a[1] - b[1]; });
   return targets
 }
 
@@ -1043,18 +1139,20 @@ function makeEdge(start_vertex, end_vertex) {
 
 function zoomToVertex(vertex) {
   console.log('zooming');
+  let rootWeb = currentWebs[0]['web'];
+
   if (temp['zooming'] == undefined) {
 
     let now = new Date();
     temp['zooming'] = {
       'startTime': now,
       'duration': 400,  // milliseconds
-      'startX': panes['viz']['x'],
-      'startY': panes['viz']['y'],
-      'startS': panes['viz']['scale'],
+      'startX': rootWeb['screen']['x'],
+      'startY': rootWeb['screen']['y'],
+      'startS': rootWeb['screen']['scale'],
       'endX': -vertex['screen']['x'],
       'endY': -vertex['screen']['y'],
-      'endS': Math.max(panes['global']['width'] * paneSplitPercent, panes['global']['height']) * 0.95 / Math.sqrt(vertex['node']['data']['size']) / 2,
+      'endS': Math.max(width * paneSplitPercent, height) * 0.95 / Math.sqrt(vertex['node']['data']['size']) / 2,
       'timer': setInterval(zoomToVertex, 10),
     };
 
@@ -1064,10 +1162,10 @@ function zoomToVertex(vertex) {
     let done = tween > 1;
     tween = Math.min(tween, 1);
 
-    panes['viz']['x'] = temp['zooming']['startX'] + tween**0.2 * (temp['zooming']['endX'] - temp['zooming']['startX']);
-    panes['viz']['y'] = temp['zooming']['startY'] + tween**0.2 * (temp['zooming']['endY'] - temp['zooming']['startY']);
-    panes['viz']['scale'] = temp['zooming']['startS'] + tween**8 * (temp['zooming']['endS'] - temp['zooming']['startS']);
-    adjustVizClip();
+    rootWeb['screen']['x'] = temp['zooming']['startX'] + tween**0.2 * (temp['zooming']['endX'] - temp['zooming']['startX']);
+    rootWeb['screen']['y'] = temp['zooming']['startY'] + tween**0.2 * (temp['zooming']['endY'] - temp['zooming']['startY']);
+    rootWeb['screen']['scale'] = temp['zooming']['startS'] + tween**8 * (temp['zooming']['endS'] - temp['zooming']['startS']);
+    // adjustVizClip();
     draw();
 
     if (done) {
@@ -1081,6 +1179,7 @@ function zoomToVertex(vertex) {
 
 function selectClosestElement() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
+  console.log('mouse:', x, y);
   if (pane != 'viz') {
     return;
   }

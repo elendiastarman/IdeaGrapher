@@ -640,6 +640,11 @@ class Web extends BaseModel {
       'graph': new ModelField('Graph', {}),
       'vertices': new ListField(ModelField, ['Vertex', {}], {}),
       'edges': new ListField(ModelField, ['Edge', {}], {}),
+      'screen': new NestedField({'_fields': {
+        'x': new NumberField({'default': 0}),
+        'y': new NumberField({'default': 0}),
+        'scale': new NumberField({'default': 1}),
+      }}),
       'data': new DictField({}),
     }
   }
@@ -650,6 +655,11 @@ class Web extends BaseModel {
       ['graph', false],
       ['vertices', false],
       ['edges', false],
+      ['screen', [
+        ['x', true],
+        ['y', true],
+        ['scale', true],
+      ]],
       ['data', true],
     ]
   }

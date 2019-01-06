@@ -98,6 +98,11 @@ class Web(MongoModel):
   graph = ModelField(Graph)
   vertices = ListField(ModelField(Vertex))
   edges = ListField(ModelField(Edge))
+  screen = NestedField(dict(
+    x=FloatField(default=0),
+    y=FloatField(default=0),
+    scale=FloatField(default=1),
+  ))
   data = DictField()
 
 
