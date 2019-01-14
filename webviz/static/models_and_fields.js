@@ -1,6 +1,8 @@
-"use strict";
-if (typeof Proxy == "undefined") {
-    throw new Error("This browser doesn't support Proxy.");
+'use strict';
+/* global d3:false */
+
+if (typeof Proxy == 'undefined') {
+    throw new Error('This browser doesn\'t support Proxy.');
 }
 
 class BaseField {
@@ -14,7 +16,7 @@ class BaseField {
   }
 
   _getType() {
-    throw new Error("Field type not yet defined!");
+    throw new Error('Field type not yet defined!');
   }
 
   serialize() {
@@ -29,7 +31,7 @@ class BaseField {
   }
 
   get value() {
-    return this._value
+    return this._value;
   }
 
   set value(newValue) {
@@ -55,20 +57,20 @@ class BaseField {
 
   validate(value) {
     if (value == null && !this.nullable) {
-      throw new Error("New value cannot be '" + value + "'.");
+      throw new Error('New value cannot be \'' + value + '\'.');
     }
   }
 
   addInput(container, editable) {
-    throw new Error("Input method not yet implemented!");
+    throw new Error('Input method not yet implemented!');
   }
 
   applyChanges() {
-    throw new Error("Method for applying changes not yet implemented!");
+    throw new Error('Method for applying changes not yet implemented!');
   }
 
   applyDefaultInputStyling(input, editable) {
-    let tempFunc = function(item){ return function(){ item.applyChanges(); } };
+    let tempFunc = function(item){ return function(){ item.applyChanges(); }; };
     input
       .style('width', '95%')
       .property('disabled', !editable)
@@ -78,7 +80,7 @@ class BaseField {
 
 class StringField extends BaseField {
   constructor(params) {
-    super(params)
+    super(params);
     this.min_length = params.min_length || 0;
     this.max_length = params.max_length || null;
     this.placeholder = params.placeholder || '';
@@ -94,11 +96,11 @@ class StringField extends BaseField {
     if (value == null) { return; }
 
     if (typeof value !== 'string') {
-      throw new Error("Value '" + value + "' is not a string.");
+      throw new Error('Value \'' + value + '\' is not a string.');
     } else if (value.length < this.min_length) {
-      throw new Error("Value '" + value + "' is too short; it must be at least " + this.min_length + " characters.");
+      throw new Error('Value \'' + value + '\' is too short; it must be at least ' + this.min_length + ' characters.');
     } else if (this.max_length != null && value.length > this.max_length) {
-      throw new Error("Value '" + value + "' is too long; it must be no more than " + this.max_length + " characters long.");
+      throw new Error('Value \'' + value + '\' is too long; it must be no more than ' + this.max_length + ' characters long.');
     }
   }
 
@@ -134,7 +136,7 @@ class TextField extends StringField {
 
 class NumberField extends BaseField {
   constructor(params) {
-    super(params)
+    super(params);
     this.min = params.min || null;
     this.max = params.max || null;
   }
@@ -147,11 +149,11 @@ class NumberField extends BaseField {
     super.validate(value);
 
     if (typeof value !== 'number') {
-      throw new Error("Value '" + value + "' is not a number.");
+      throw new Error('Value \'' + value + '\' is not a number.');
     } else if (value.length < this.min) {
-      throw new Error("Value '" + value + "' is smaller than the minimum of " + this.min + ".");
+      throw new Error('Value \'' + value + '\' is smaller than the minimum of ' + this.min + '.');
     } else if (value.length < this.max) {
-      throw new Error("Value '" + value + "' is greater than the maximum of " + this.max + ".");
+      throw new Error('Value \'' + value + '\' is greater than the maximum of ' + this.max + '.');
     }
   }
 
@@ -180,7 +182,7 @@ class ListField extends BaseField {
   constructor(fieldClass, fieldArgs, params) {
     params.default = params.default || [];
 
-    super(params)
+    super(params);
     this.fieldClass = fieldClass;
     this.fieldArgs = fieldArgs;
     this.min_length = params.min_length || 0;
@@ -195,9 +197,9 @@ class ListField extends BaseField {
     super.validate(value);
 
     if (value.length < this.min_length) {
-      throw new Error("Value '" + value + "' is too short; it must have at least " + this.min_length + " elements.");
+      throw new Error('Value \'' + value + '\' is too short; it must have at least ' + this.min_length + ' elements.');
     } else if (this.max_length != null && value.length > this.max_length) {
-      throw new Error("Value '" + value + "' is too long; it must have no more than " + this.max_length + " elements.");
+      throw new Error('Value \'' + value + '\' is too long; it must have no more than ' + this.max_length + ' elements.');
     }
   }
 
@@ -320,8 +322,8 @@ class ListField extends BaseField {
 
     let tempFunc = function(box, list, canEdit){ return function(){
       list.push({});
-      addInputElement(box, list.value[list.value.length - 1], canEdit);
-    }};
+      this.addInputElement(box, list.value[list.value.length - 1], canEdit);
+    }; };
     div.append('a')
       .attr('id', 'add' + randomId)
       .attr('href', '').text('+ Add one')
@@ -331,11 +333,11 @@ class ListField extends BaseField {
 
 class EnumField extends BaseField {
   constructor(params) {
-    super(params)
+    super(params);
     this.choices = params.choices || [];
 
     if (this.choices.length < 1) {
-      throw new Error("EnumField needs at least one choice.");
+      throw new Error('EnumField needs at least one choice.');
     }
   }
 
@@ -349,9 +351,9 @@ class EnumField extends BaseField {
     if (value == null) { return; }
 
     if (typeof value !== 'string') {
-      throw new Error("Value '" + value + "' is not a string.");
+      throw new Error('Value \'' + value + '\' is not a string.');
     } else if (this.choices.indexOf(value) == -1) {
-      throw new Error("Value '" + value + "' is not in the choices '" + this.choices + "'.");
+      throw new Error('Value \'' + value + '\' is not in the choices \'' + this.choices + '\'.');
     }
   }
 
@@ -379,21 +381,21 @@ class EnumField extends BaseField {
 
 class ModelField extends BaseField {
   constructor(modelName, params) {
-    super(params)
+    super(params);
     this.modelName = modelName;
 
     let model = modelMap[this.modelName];
     if (model === undefined) {
-      throw new Error("You dummy, you forgot to update modelMap to include" + this.modelName + ".");
+      throw new Error('You dummy, you forgot to update modelMap to include' + this.modelName + '.');
     }
 
     let fields = model.prototype._getFields();
 
     for (let field in fields) {
       Object.defineProperty(this, field, {
-        "enumerable": true,
-        "get": () => this._value[field],
-      })
+        'enumerable': true,
+        'get': () => this._value[field],
+      });
     }
   }
 
@@ -415,7 +417,7 @@ class ModelField extends BaseField {
   }
 
   get value() {
-    if (typeof this._value == "string") {
+    if (typeof this._value == 'string') {
       let model = modelRefs[this.modelName][this._value];
       if (model != undefined) {
         this._value = model;
@@ -484,8 +486,8 @@ class ModelField extends BaseField {
 
 class DictField extends BaseField {
   constructor(params) {
-    params.default = params.default || {}
-    super(params)
+    params.default = params.default || {};
+    super(params);
 
     let proxy = new Proxy(this, {
       get(target, name, receiver) {
@@ -507,7 +509,7 @@ class DictField extends BaseField {
         target._dirty = true;
         return target._value[name];
       }
-    })
+    });
 
     return proxy;
   }
@@ -537,9 +539,9 @@ class NestedField extends BaseField {
 
     for (let field in this._fields) {
       Object.defineProperty(this, field, {
-        "enumerable": true,
-        "get": () => this._fields[field].value,
-        "set": (newValue) => {this._fields[field].value = newValue},
+        'enumerable': true,
+        'get': () => this._fields[field].value,
+        'set': (newValue) => {this._fields[field].value = newValue;},
       });
     }
   }
@@ -619,7 +621,7 @@ class BaseModel {
   constructor(data, deserializing) {
     // console.log(data, deserializing);
     let modelName = this._modelName();
-    if (typeof data == "string") {
+    if (typeof data == 'string') {
       let model = modelRefs[modelName][data];
       if (model == undefined) {
         this._temp = data;
@@ -636,13 +638,13 @@ class BaseModel {
     }
 
     this.id = id;
-    this._fields = this._getFields()
+    this._fields = this._getFields();
 
     for (let field in this._fields) {
       Object.defineProperty(this, field, {
-        "enumerable": true,
-        "get": () => this._fields[field],
-      })
+        'enumerable': true,
+        'get': () => this._fields[field],
+      });
       this._fields[field].value = this._fields[field].deserialize(data[field]);
     }
 
@@ -655,11 +657,11 @@ class BaseModel {
     }
   }
 
-  static _defaultData() { throw new Error("Default data not yet defined!") }
+  static _defaultData() { throw new Error('Default data not yet defined!'); }
 
-  _modelName() { throw new Error("Model name not yet defined!") }
-  _getFields() { throw new Error("Fields not yet defined!") }
-  _getDataFields() { throw new Error("Data fields not yet defined!") }
+  _modelName() { throw new Error('Model name not yet defined!'); }
+  _getFields() { throw new Error('Fields not yet defined!'); }
+  _getDataFields() { throw new Error('Data fields not yet defined!'); }
 
   _populateContainer(container) {
     // assumes that container is a div within a foreignObject handled by D3
@@ -704,7 +706,7 @@ class Document extends BaseModel {
       'webs': new ListField(ModelField, ['Web', {}], {}),
       'rules': new ListField(ModelField, ['Rule', {}], {}),
       'data': new DictField({}),
-    }
+    };
   }
 
   _getDataFields() {
@@ -713,7 +715,7 @@ class Document extends BaseModel {
       ['webs', false],
       ['rules', true],
       ['data', true],
-    ]
+    ];
   }
 }
 
@@ -729,7 +731,7 @@ class Rule extends BaseModel {
       'filterFunc': new TextField({nullable: true}),
       'transformFunc': new TextField({}),
       'data': new DictField({}),
-    }
+    };
   }
 
   _getDataFields() {
@@ -738,13 +740,13 @@ class Rule extends BaseModel {
       ['webs', false],
       ['rules', true],
       ['data', true],
-    ]
+    ];
   }
 
   static _defaultData(extraData) {
     let data = {
       'id': objectIdStockpile.pop(),
-    }
+    };
 
     if (extraData) {
       if (extraData['data']) {
@@ -772,7 +774,7 @@ class Web extends BaseModel {
         'scale': new NumberField({'default': 1}),
       }}),
       'data': new DictField({}),
-    }
+    };
   }
 
   _getDataFields() {
@@ -787,13 +789,13 @@ class Web extends BaseModel {
         ['scale', true],
       ]],
       ['data', true],
-    ]
+    ];
   }
 
   static _defaultData(extraData) {
     let data = {
       'id': objectIdStockpile.pop(),
-    }
+    };
 
     if (extraData) {
       if (extraData['data']) {
@@ -808,16 +810,16 @@ class Web extends BaseModel {
 }
 
 class Edge extends BaseModel {
-  _modelName() { return "Edge"; }
+  _modelName() { return 'Edge'; }
 
   _getFields() {
     return {
-      "link": new ModelField("Link", {}),
-      "kind": new StringField({'default': "connected"}),
-      "start_vertices": new ListField(ModelField, ["Vertex", {}], {}),
-      "end_vertices": new ListField(ModelField, ["Vertex", {}], {}),
-      "data": new DictField({}),
-    }
+      'link': new ModelField('Link', {}),
+      'kind': new StringField({'default': 'connected'}),
+      'start_vertices': new ListField(ModelField, ['Vertex', {}], {}),
+      'end_vertices': new ListField(ModelField, ['Vertex', {}], {}),
+      'data': new DictField({}),
+    };
   }
 
   _getDataFields() {
@@ -827,13 +829,13 @@ class Edge extends BaseModel {
       ['start_vertices', false],
       ['end_vertices', false],
       ['data', true],
-    ]
+    ];
   }
 
   static _defaultData(extraData) {
     let data = {
       'id': objectIdStockpile.pop(),
-    }
+    };
 
     if (extraData) {
       if (extraData['data']) {
@@ -863,7 +865,7 @@ class Vertex extends BaseModel {
         'color': new StringField({'default': 'gray'}),
       }}),
       'data': new DictField({}),
-    }
+    };
   }
 
   _getDataFields() {
@@ -878,7 +880,7 @@ class Vertex extends BaseModel {
         ['color', true],
       ]],
       ['data', true],
-    ]
+    ];
   }
 
   static _defaultData(extraData) {
@@ -888,7 +890,7 @@ class Vertex extends BaseModel {
         'x': 0, 'y': 0, 'xv': 0, 'yv': 0,
         'color': 'gray', 'size': 100,
       }
-    }
+    };
 
     if (extraData) {
       if (extraData['screen']) {
@@ -913,7 +915,7 @@ class Graph extends BaseModel {
       'nodes': new ListField(ModelField, ['Node', {}], {}),
       'links': new ListField(ModelField, ['Link', {}], {}),
       'data': new DictField({}),
-    }
+    };
   }
 
   _getDataFields() {
@@ -921,13 +923,13 @@ class Graph extends BaseModel {
       ['nodes', false],
       ['links', false],
       ['data', true],
-    ]
+    ];
   }
 
   static _defaultData(extraData) {
     let data = {
       'id': objectIdStockpile.pop(),
-    }
+    };
 
     if (extraData) {
       if (extraData['data']) {
@@ -942,14 +944,14 @@ class Graph extends BaseModel {
 }
 
 class Link extends BaseModel {
-  _modelName() { return "Link"; }
+  _modelName() { return 'Link'; }
 
   _getFields() {
     return {
-      "sources": new ListField(ModelField, ["Node", {}], {}),
-      "sinks": new ListField(ModelField, ["Node", {}], {}),
-      "data": new DictField({}),
-    }
+      'sources': new ListField(ModelField, ['Node', {}], {}),
+      'sinks': new ListField(ModelField, ['Node', {}], {}),
+      'data': new DictField({}),
+    };
   }
 
   _getDataFields() {
@@ -957,13 +959,13 @@ class Link extends BaseModel {
       ['sources', false],
       ['sinks', false],
       ['data', true],
-    ]
+    ];
   }
 
   static _defaultData(extraData) {
     let data = {
       'id': objectIdStockpile.pop(),
-    }
+    };
 
     if (extraData) {
       if (extraData['data']) {
@@ -978,25 +980,25 @@ class Link extends BaseModel {
 }
 
 class Node extends BaseModel {
-  _modelName() { return "Node"; }
+  _modelName() { return 'Node'; }
 
   _getFields() {
     return {
-      "subgraphs": new ListField(ModelField, ["Graph", {}], {}),
-      "data": new DictField({}),
-    }
+      'subgraphs': new ListField(ModelField, ['Graph', {}], {}),
+      'data': new DictField({}),
+    };
   }
 
   _getDataFields() {
     return [
       ['data', true],
-    ]
+    ];
   }
 
   static _defaultData(extraData) {
     let data = {
       'id': objectIdStockpile.pop(),
-    }
+    };
 
     if (extraData) {
       if (extraData['data']) {
@@ -1034,9 +1036,9 @@ class ModelLookup {
     this.models[modelId] = instance;
 
     Object.defineProperty(this, modelId, {
-      "enumerable": true,
-      "get": () => this.models[modelId],
-    })
+      'enumerable': true,
+      'get': () => this.models[modelId],
+    });
 
     return this[modelId];
   }
@@ -1091,7 +1093,7 @@ var modelMap = {
   'Graph': Graph,
   'Link': Link,
   'Node': Node,
-}
+};
 var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web', 'Rule', 'Document'];
 for (let modelName in modelMap) {
   modelRefs[modelName] = {};

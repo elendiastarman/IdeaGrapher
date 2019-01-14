@@ -1,6 +1,9 @@
-"use strict;"
+'use strict;';
+/* global d3:false */
+
 // The following come from models-and-fields.js:
-// Web, Graph, Vertex, Node, etc
+/* global Node:false, Vertex:false, Link:false, Edge:false, Graph:false, Web:false, Rule:false, Document:false */
+/* global ModelLookup:false */
 
 var svg = d3.select('#display');
 
@@ -75,11 +78,11 @@ var panes = {
       'container': null,
       'inner': null,
       'reposition': function(container, x, y, width, height){
-        // container.select('foreignObject')
-        //   .attr('x', x + 5)
-        //   .attr('y', y + 5)
-        //   .attr('width', width - 10)
-        //   .attr('height', height - 10);
+        container.select('foreignObject')
+          .attr('x', x + 5)
+          .attr('y', y + 5)
+          .attr('width', width - 10)
+          .attr('height', height - 10);
       },
     },
   }
@@ -95,7 +98,7 @@ var models = {
   'edges': new ModelLookup(Edge),
   'graphs': new ModelLookup(Graph),
   'webs': new ModelLookup(Web),
-  // 'rules': new ModelLookup(Rule),
+  'rules': new ModelLookup(Rule),
   'documents': new ModelLookup(Document),
 };
 
@@ -107,7 +110,7 @@ var width, height,  // of the whole SVG
 
 $(document).ready(function(){ init(); });
 
-var startTime, loopTimer;
+var startTime, loopTimer; // noqa
 function init() {
   startTime = Date.now();
 
@@ -198,7 +201,7 @@ function initFrames() {
       .style('width', '100%')
       .style('height', '100%')
       .append('select')
-        .on('change', function(){ console.log('switcher', this) });
+        .on('change', function(){ console.log('switcher', this); });
 
     panes['frames'][index]['frame'] = frame;
     panes['frames'][index]['clippath'] = clippath;
@@ -490,18 +493,18 @@ function draw() {
     d3.select('#web' + web.id)
       .attr('transform', function(d){
         let screen = models['webs'][d]['screen'];
-        return 'translate(' + screen['x'] * screen['scale'] + ',' + screen['y'] * screen['scale'] + ') scale(' + screen['scale'] + ')'
+        return 'translate(' + screen['x'] * screen['scale'] + ',' + screen['y'] * screen['scale'] + ') scale(' + screen['scale'] + ')';
       });
 
     let vData = d3.select('#web' + web.id).select('.vertices').selectAll('.vertex').data(web['vertices'].serialize(), function(d){ return d; });
     vData
-      .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')' });
+      .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')'; });
     vData.select('circle')
       .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); })
       .attr('stroke-width', (2 / vScale) + 'px')
       .attr('fill', function(d){ return models['vertices'][d]['screen']['color'] || 'gray'; });
     vData.selectAll('text')
-      .text(function(d){ return models['vertices'][d]['data']['shortname']})
+      .text(function(d){ return models['vertices'][d]['data']['shortname']; })
       .attr('font-size', 16 / vScale );
     vData.select('text.outer')
       .style('stroke-width', 5 / vScale);
@@ -522,7 +525,7 @@ function draw() {
 }
 
 function populateSelectedPane(element) {
-  let inner = panes['contents']['selected']['inner']
+  let inner = panes['contents']['selected']['inner'];
   inner.selectAll('*').remove();
 
   if (element != null) {
@@ -539,7 +542,7 @@ function highlightSelected() {
   }
 }
 
-doPhysics = false;
+var doPhysics = false;
 function start() {
   doPhysics = true;
 }
@@ -555,7 +558,7 @@ function step() {
   changed = executeContinuousTriggers() || changed;
 
   if (doPhysics) {
-    stepPhysics();
+    // stepPhysics();
     changed = changed || true;
   }
 
@@ -567,7 +570,7 @@ function step() {
 
 function saveDocname() {
   let inputName = $('#docname').val();
-  doc = models['documents'].index(0);
+  let doc = models['documents'].index(0);
   if (inputName != doc['name'].value) {
     doc['name'].value = inputName;
 
@@ -709,12 +712,12 @@ var now = Date.now();
 var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, middle button, right button, scroll wheel
 var mouseEventTimes = [now, now, now, now, now];
 var mouseState = {
-  "state": "hover",
-  "scrollTime": 0,
-  "changed": false,
-  "scrolled": false,
-  "lastPressed": null,
-  "lastReleased": null,
+  'state': 'hover',
+  'scrollTime': 0,
+  'changed': false,
+  'scrolled': false,
+  'lastPressed': null,
+  'lastReleased': null,
 };
 
 function handleMouseDown() {
@@ -771,30 +774,30 @@ function updateMouseState() {
   let buttonsDown = (mouseEvents[1].length && mouseEvents[1][0][1] == null) * 1 + (mouseEvents[2].length && mouseEvents[2][0][1] == null) * 2 + (mouseEvents[3].length && mouseEvents[3][0][1] == null) * 4;
   // console.log("buttonsDown: ", buttonsDown);
   // let buttonsDownTime = Math.min(mouseEventTimes[1], mouseEventTimes[2], mouseEventTimes[3]);
-  let oldState = mouseState["state"];
+  let oldState = mouseState['state'];
 
   // hover -> down
-  if(mouseState["state"] == "hover") {
+  if(mouseState['state'] == 'hover') {
 
     // down -> down
     if(buttonsDown > 0) {
-      mouseState["state"] = "down";
+      mouseState['state'] = 'down';
     }
 
   }
 
   // down -> click, hold, drag
-  else if (mouseState["state"] == "down") {
+  else if (mouseState['state'] == 'down') {
 
     // up -> click
     if(buttonsDown == 0) {
-      mouseState["state"] = "click";
-      mouseState["clicks"] = 1;
+      mouseState['state'] = 'click';
+      mouseState['clicks'] = 1;
     }
 
     // wait -> hold
-    else if (now - mouseState["time"] > holdTime) {
-      mouseState["state"] = "hold";
+    else if (now - mouseState['time'] > holdTime) {
+      mouseState['state'] = 'hold';
     }
 
     // move -> drag
@@ -803,37 +806,37 @@ function updateMouseState() {
           b = mouseEvents[0][0][1];
 
       if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
-        mouseState["state"] = "drag";
+        mouseState['state'] = 'drag';
       }
     }
   }
 
   // click -> hover, click-down
-  else if (mouseState["state"] == "click") {
+  else if (mouseState['state'] == 'click') {
 
     // down -> click-down
     if(buttonsDown > 0) {
-      mouseState["state"] = "click-down";
+      mouseState['state'] = 'click-down';
     }
 
     // wait -> hover
-    else if (now - mouseState["time"] > clickWaitTime) {
-      mouseState["state"] = "hover";
+    else if (now - mouseState['time'] > clickWaitTime) {
+      mouseState['state'] = 'hover';
     }
   }
 
   // click-down -> click, click-drag, click-hold
-  else if (mouseState["state"] == "click-down") {
+  else if (mouseState['state'] == 'click-down') {
 
     // up -> click
     if(buttonsDown == 0) {
-      mouseState["state"] = "click";
-      mouseState["clicks"] += 1;
+      mouseState['state'] = 'click';
+      mouseState['clicks'] += 1;
     }
 
     // wait -> click-hold
-    else if (now - mouseState["time"] > holdTime) {
-      mouseState["state"] = "click-hold";
+    else if (now - mouseState['time'] > holdTime) {
+      mouseState['state'] = 'click-hold';
     }
 
     // move -> click-drag
@@ -842,19 +845,19 @@ function updateMouseState() {
           b = mouseEvents[0][0][1];
 
       if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
-        mouseState["state"] = "click-drag";
+        mouseState['state'] = 'click-drag';
       }
     }
   }
 
   // click-drag, click-hold, hold, hold-drag, drag, drag-hold + up -> hover
-  else if (buttonsDown == 0 && ["click-drag", "click-hold", "hold", "hold-drag", "drag", "drag-hold"].includes(mouseState["state"])) {
-    mouseState["state"] = "hover";
-    mouseState["clicks"] = 0;
+  else if (buttonsDown == 0 && ['click-drag', 'click-hold', 'hold', 'hold-drag', 'drag', 'drag-hold'].includes(mouseState['state'])) {
+    mouseState['state'] = 'hover';
+    mouseState['clicks'] = 0;
   }
 
   // hold -> hold-drag
-  else if (mouseState["state"] == "hold") {
+  else if (mouseState['state'] == 'hold') {
 
     // move -> hold-drag
     if(mouseEvents[0][0][1] != null) {
@@ -862,7 +865,7 @@ function updateMouseState() {
           b = mouseEvents[0][0][1];
 
       if(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2) > Math.pow(moveDis, 2)) {
-        mouseState["state"] = "hold-drag";
+        mouseState['state'] = 'hold-drag';
       }
     }
   }
@@ -870,27 +873,27 @@ function updateMouseState() {
   // drag -> drag-hold
 
   // known states and nothing to do
-  else if (["click", "click-drag", "click-hold", "hold", "hold-drag", "drag", "drag-hold"].includes(mouseState["state"])) {
+  else if (['click', 'click-drag', 'click-hold', 'hold', 'hold-drag', 'drag', 'drag-hold'].includes(mouseState['state'])) {
     // pass
   }
 
   // unknown state
   else {
-    console.log("ERROR! Unknown/invalid state: " + mouseState["state"])
+    console.log('ERROR! Unknown/invalid state: ' + mouseState['state']);
   }
 
-  if(mouseEvents[4].length && mouseEventTimes[4] > mouseState["scrollTime"]) {
-    mouseState["scroll"] = [mouseEvents[4][0].deltaX, mouseEvents[4][0].deltaY]
-    mouseState["scrollTime"] = mouseEventTimes[4];
+  if(mouseEvents[4].length && mouseEventTimes[4] > mouseState['scrollTime']) {
+    mouseState['scroll'] = [mouseEvents[4][0].deltaX, mouseEvents[4][0].deltaY];
+    mouseState['scrollTime'] = mouseEventTimes[4];
   } else {
-    mouseState["scroll"] = [0, 0];
+    mouseState['scroll'] = [0, 0];
   }
 
-  mouseState["buttons"] = buttonsDown;
+  mouseState['buttons'] = buttonsDown;
 
-  if(mouseState["state"] != oldState) {
-    mouseState["time"] = now;
-    executeChangeTriggers(oldState, mouseState["state"]);
+  if(mouseState['state'] != oldState) {
+    mouseState['time'] = now;
+    executeChangeTriggers(oldState, mouseState['state']);
   }
 
   let changed = mouseState['changed'];
@@ -910,7 +913,7 @@ function respondToScrollInput() {
   }
 
   let rootWeb = currentWebs[0]['web'];
-  let mouseX = normX
+  let mouseX = normX,
       mouseY = normY;
 
   mouseX = (normX - frame['dimensions']['width'] / 2) / rootWeb['screen']['scale'] - rootWeb['screen']['x'];
@@ -937,7 +940,7 @@ function respondToScrollInput() {
 
 function enterOrExitSubweb(scrollDirection) {
   let topWeb = currentWebs[currentWebs.length - 1];
-  let rootWeb = currentWebs[0]['web']
+  let rootWeb = currentWebs[0]['web'];
 
   let frame;
   for (let index in panes['frames']) {
@@ -1000,13 +1003,14 @@ function enterOrExitSubweb(scrollDirection) {
   }
 }
 
+var continuousTriggers;
 function executeContinuousTriggers() {
   let changed = false;
 
-  for(index in continuousTriggers) {
-    group = continuousTriggers[index];
-    if(group[0].exec(mouseState["state"])) {
-      for(fIndex in group[1]) {
+  for(let index in continuousTriggers) {
+    let group = continuousTriggers[index];
+    if(group[0].exec(mouseState['state'])) {
+      for(let fIndex in group[1]) {
         group[1][fIndex]();
         changed = true;
       }
@@ -1016,13 +1020,14 @@ function executeContinuousTriggers() {
   return changed;
 }
 
+var changeTriggers;
 function executeChangeTriggers(oldState, newState) {
   let changed = false;
 
-  for(index in changeTriggers) {
-    group = changeTriggers[index];
+  for(let index in changeTriggers) {
+    let group = changeTriggers[index];
     if(group[0].exec(oldState + '->' + newState)) {
-      for(fIndex in group[1]) {
+      for(let fIndex in group[1]) {
         group[1][fIndex]();
         changed = true;
       }
@@ -1066,7 +1071,7 @@ function dragEnd() {
 }
 
 function pan() {
-  if(mouseState["buttons"] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'viz') {
+  if(mouseState['buttons'] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'viz') {
     if (temp['pan'] == null) {
       temp['pan'] = {
         'startX': currentWebs[0]['web']['screen']['x'],
@@ -1080,7 +1085,7 @@ function pan() {
 }
 
 function dragVertex(vertex) {
-  if(mouseState["buttons"] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'viz') {
+  if(mouseState['buttons'] == 1 && whichPane(mouseEvents[0][0][0])[0] == 'viz') {
     if (temp['dragVertex'] == null) {
       temp['dragVertex'] = {
         'startX': vertex['screen']['x'],
@@ -1126,7 +1131,7 @@ function whichPane(event) {
 function normalizeMousePosition(event) {
   let [pane, frame, realX, realY, normX, normY] = whichPane(event);
   let rootWeb = currentWebs[0]['web'];
-  let x = normX
+  let x = normX,
       y = normY;
 
   if (pane == 'viz') {
@@ -1197,7 +1202,7 @@ function identifyTargets(x, y, types) {
   }
 
   targets.sort(function(a, b){ return a[1] - b[1]; });
-  return targets
+  return targets;
 }
 
 function handleDoubleClick() {
@@ -1421,9 +1426,9 @@ function multiClick() {
 
 continuousTriggers = [
   [/drag/, [drag]],
-]
+];
 
 changeTriggers = [
   [/drag->hover/, [dragEnd]],
   [/(click-)?down->click/, [multiClick]],
-]
+];

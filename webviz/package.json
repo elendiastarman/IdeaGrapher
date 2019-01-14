@@ -1,0 +1,11 @@
+{
+  "name": "webviz",
+  "version": "1.0.0",
+  "description": "Browser visualization component of the IdeaGrapher",
+  "main": "render.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "El'endia Starman",
+  "license": "ISC"
+}
