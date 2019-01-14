@@ -326,7 +326,6 @@ class ListField extends BaseField {
     let randomId = Math.random().toString().slice(2);
     let div = this._input.append('div')
       .attr('id', randomId);
-    div.append('br');
 
     div.append('a')
       .attr('id', 'show' + randomId)

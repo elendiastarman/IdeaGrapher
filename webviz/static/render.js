@@ -80,9 +80,9 @@ var panes = {
       'reposition': function(container, x, y, width, height){
         container.select('foreignObject')
           .attr('x', x + 5)
-          .attr('y', y + 5)
+          .attr('y', y + 20)
           .attr('width', width - 10)
-          .attr('height', height - 10);
+          .attr('height', height - 25);
       },
     },
   }
