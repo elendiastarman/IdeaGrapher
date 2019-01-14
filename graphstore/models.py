@@ -383,6 +383,9 @@ class IntegerField(MongoField):
   def validate(self):
     super().validate()
 
+    if self.value is None:
+      return
+
     if not isinstance(self.value, int):
       raise ValueError("Value must be {}, not {}.".format(int, type(self.value)))
 
@@ -402,6 +405,9 @@ class FloatField(MongoField):
 
   def validate(self):
     super().validate()
+
+    if self.value is None:
+      return
 
     if not isinstance(self.value, float):
       if isinstance(self.value, int):
@@ -427,6 +433,10 @@ class BooleanField(MongoField):
 
   def validate(self):
     super().validate()
+
+    if self.value is None:
+      return
+
     if not isinstance(self.value, bool):
       raise ValueError("Value must be {}, not {}.".format(bytes, type(self.value)))
 
@@ -438,6 +448,9 @@ class StringField(MongoField):
 
   def validate(self):
     super().validate()
+
+    if self.value is None:
+      return
 
     if not isinstance(self.value, str):
       raise ValueError("Value must be {}, not {}.".format(str, type(self.value)))
@@ -453,6 +466,9 @@ class BinaryField(MongoField):
 
   def validate(self):
     super().validate()
+
+    if self.value is None:
+      return
 
     if not isinstance(self.value, bytes):
       raise ValueError("Value must be {}, not {}.".format(bytes, type(self.value)))
@@ -488,6 +504,9 @@ class ListField(MongoField):
 
   def validate(self):
     super().validate()
+
+    if self.value is None:
+      return
 
     if self.max_length and len(self.value) > self.max_length:
       raise ValueError("Maximum length is {}; actual length is {}.".format(self.max_length, len(self.value)))
@@ -547,6 +566,9 @@ class EnumField(MongoField):
   def validate(self):
     super().validate()
 
+    if self.value is None:
+      return
+
     if self.value not in self.allowed:
       raise ValueError("Value is {} but it must be one of {}.".format(self.value, self.allowed))
 
@@ -558,6 +580,9 @@ class DictField(MongoField):
 
   def validate(self):
     super().validate()
+
+    if self.value is None:
+      return
 
     if not isinstance(self.value, dict):
       raise ValueError("Value {} is a {} but must be a {}.".format(self.value, type(self.value), type(dict)))

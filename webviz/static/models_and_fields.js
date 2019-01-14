@@ -74,7 +74,7 @@ class BaseField {
     input
       .style('width', '95%')
       .property('disabled', !editable)
-      .on('focusout', tempFunc(this));
+      .on('change', tempFunc(this));
   }
 }
 
@@ -134,6 +134,39 @@ class TextField extends StringField {
   }
 }
 
+class BooleanField extends BaseField {
+  constructor(params) {
+    super(params);
+    this.default = params.default || false;
+  }
+
+  _getType() {
+    return 'boolean';
+  }
+
+  validate(value) {
+    super.validate(value);
+
+    if (value == null) { return; }
+
+    if (typeof value !== 'boolean') {
+      throw new Error('Value \'' + value + '\' is not a boolean.');
+    }
+  }
+
+  addInput(container, editable) {
+    let input = container.append('input')
+      .attr('type', 'checkbox')
+      .property('checked', this.value);
+    this.applyDefaultInputStyling(input, editable);
+    this._input = input;
+  }
+
+  applyChanges() {
+    this.value = this._input.node().checked;
+  }
+}
+
 class NumberField extends BaseField {
   constructor(params) {
     super(params);
@@ -147,6 +180,8 @@ class NumberField extends BaseField {
 
   validate(value) {
     super.validate(value);
+
+    if (value == null) { return; }
 
     if (typeof value !== 'number') {
       throw new Error('Value \'' + value + '\' is not a number.');
@@ -195,6 +230,8 @@ class ListField extends BaseField {
 
   validate(value) {
     super.validate(value);
+
+    if (value == null) { return; }
 
     if (value.length < this.min_length) {
       throw new Error('Value \'' + value + '\' is too short; it must have at least ' + this.min_length + ' elements.');
@@ -257,8 +294,12 @@ class ListField extends BaseField {
 
   push(...values) {
     for (let index in values) {
-      let field = new this.fieldClass(...this.fieldArgs);
-      this._value.push(field.deserialize(values[index]));
+      if (this.fieldClass == ModelField && values[index] instanceof modelMap[this.fieldArgs[0]]) {
+        this._value.push(values[index]);
+      } else {
+        let field = new this.fieldClass(...this.fieldArgs);
+        this._value.push(field.deserialize(values[index]));
+      }
     }
 
     this._dirty = true;
@@ -285,6 +326,7 @@ class ListField extends BaseField {
     let randomId = Math.random().toString().slice(2);
     let div = this._input.append('div')
       .attr('id', randomId);
+    div.append('br');
 
     div.append('a')
       .attr('id', 'show' + randomId)
@@ -321,9 +363,17 @@ class ListField extends BaseField {
     inputDiv.append('hr');
 
     let tempFunc = function(box, list, canEdit){ return function(){
-      list.push({});
+      d3.event.preventDefault();
+      if (list.fieldClass == ModelField) {
+        let model = modelMap[list.fieldArgs[0]];
+        let newModel = new model(model._defaultData(), false);
+        list.push(newModel);
+      } else {
+        list.push({});
+      }
       this.addInputElement(box, list.value[list.value.length - 1], canEdit);
     }; };
+    div.append('br');
     div.append('a')
       .attr('id', 'add' + randomId)
       .attr('href', '').text('+ Add one')
@@ -727,9 +777,9 @@ class Rule extends BaseModel {
       'active': new BooleanField({default: false}),
       'trigger': new EnumField({choices: ['button', 'tick'], default: 'button'}),
       'frequency': new NumberField({nullable: true, min: 1}),
-      'targetClass': new EnumField({choices: ['document', 'rule', 'web', 'edge', 'vertex', 'graph', 'link', 'node']}),
+      'targetClass': new EnumField({choices: ['document', 'rule', 'web', 'edge', 'vertex', 'graph', 'link', 'node'], default: 'vertex'}),
       'filterFunc': new TextField({nullable: true}),
-      'transformFunc': new TextField({}),
+      'transformFunc': new TextField({nullable: true}),
       'data': new DictField({}),
     };
   }
@@ -737,8 +787,12 @@ class Rule extends BaseModel {
   _getDataFields() {
     return [
       ['name', true],
-      ['webs', false],
-      ['rules', true],
+      ['active', true],
+      ['trigger', true],
+      ['frequency', true],
+      ['targetClass', true],
+      ['filterFunc', true],
+      ['transformFunc', true],
       ['data', true],
     ];
   }

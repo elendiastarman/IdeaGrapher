@@ -138,6 +138,7 @@ function init() {
 
   panes['contents']['viz']['inner'].append('use')
     .attr('xlink:href', '#web' + rootWeb.id);
+  models['documents'].index(0).rules.addInput(panes['contents']['rules']['inner'], true);
 
   while (enterOrExitSubweb(-1));
   draw();
@@ -297,6 +298,13 @@ function initWebs(data) {
   }
 }
 
+function initRules(data) {
+  let rulesData = data['Rule'] || [];
+  for (let key in rulesData) {
+    models['rules'].add(new Rule(rulesData[key]));
+  }
+}
+
 function initDocuments(data) {
   let documentsData = data['Document'] || [];
   for (let key in documentsData) {
@@ -312,6 +320,7 @@ function loadData() {
   initEdges(data);
   initGraphs(data);
   initWebs(data);
+  initRules(data);
   initDocuments(data);
 }
 

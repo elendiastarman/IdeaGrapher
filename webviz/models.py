@@ -111,9 +111,9 @@ class Rule(MongoModel):
   active = BooleanField(default=False)
   trigger = EnumField(['button', 'tick'], default='button')
   frequency = IntegerField(nullable=True, min=1)
-  target_class = EnumField(['document', 'rule', 'web', 'edge', 'vertex', 'graph', 'link', 'node'])
+  target_class = EnumField(['document', 'rule', 'web', 'edge', 'vertex', 'graph', 'link', 'node'], default='vertex')
   filter_func = StringField(nullable=True)
-  transform_func = StringField()
+  transform_func = StringField(nullable=True)
   data = DictField()
 
 
