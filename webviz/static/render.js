@@ -11,6 +11,11 @@ var panes = {
       'percentage': 0.75,
       'border': null,
     },
+    {
+      'orientation': 'horizontal',
+      'percentage': 0.5,
+      'border': null,
+    },
   ],
   'frames': [
     {
@@ -20,14 +25,25 @@ var panes = {
       'frame': null,
       'contents': 'viz',
       'clippath': null,
+      'switcher': null,
     },
     {
-      'bounds': [null, null, null, 0],
+      'bounds': [null, null, 1, 0],
       'position': {'x': 0, 'y': 0},
       'dimensions': {'width': 0, 'height': 0},
       'frame': null,
       'contents': 'selected',
       'clippath': null,
+      'switcher': null,
+    },
+    {
+      'bounds': [1, null, null, 0],
+      'position': {'x': 0, 'y': 0},
+      'dimensions': {'width': 0, 'height': 0},
+      'frame': null,
+      'contents': 'rules',
+      'clippath': null,
+      'switcher': null,
     },
   ],
   'contents': {
@@ -58,7 +74,13 @@ var panes = {
       'name': 'rules',
       'container': null,
       'inner': null,
-      'reposition': null,
+      'reposition': function(container, x, y, width, height){
+        // container.select('foreignObject')
+        //   .attr('x', x + 5)
+        //   .attr('y', y + 5)
+        //   .attr('width', width - 10)
+        //   .attr('height', height - 10);
+      },
     },
   }
 };
@@ -146,9 +168,9 @@ function initDividers() {
       .call(d3.drag().on('drag', dragDivider));
 
     if (panes['dividers'][index]['orientation'] == 'vertical') {
-      border.attr('y', 0).attr('width', 3);
+      border.attr('y', 0).attr('width', 5);
     } else if (panes['dividers'][index]['orientation'] == 'horizontal') {
-      border.attr('x', 0).attr('height', 3);
+      border.attr('x', 0).attr('height', 5);
     }
 
     panes['dividers'][index]['border'] = border;
@@ -161,12 +183,26 @@ function initFrames() {
       .attr('id', 'frame' + index);
     frame.append('rect')
       .style('fill', 'white');
+
     let clippath = svg.select('#clippaths').append('clipPath')
       .attr('id', 'clippath' + index)
       .append('rect');
 
+    let switcher = frame.append('foreignObject')
+      .attr('width', 100)
+      .attr('height', 20);
+    switcher.append('xhtml:div')
+      .attr('id', 'switcher' + index)
+      .attr('xmlns', 'http://www.w3.org/1999/xhtml')
+      .style('overflow', 'visible')
+      .style('width', '100%')
+      .style('height', '100%')
+      .append('select')
+        .on('change', function(){ console.log('switcher', this) });
+
     panes['frames'][index]['frame'] = frame;
     panes['frames'][index]['clippath'] = clippath;
+    panes['frames'][index]['switcher'] = switcher;
   }
 }
 
@@ -183,6 +219,17 @@ function initPanes() {
   sel['container'].append('foreignObject');
   sel['inner'] = sel['container'].select('foreignObject').append('xhtml:div')
     .attr('id', 'selectedInner')
+    .attr('xmlns', 'http://www.w3.org/1999/xhtml')
+    .style('overflow', 'auto')
+    .style('width', '100%')
+    .style('height', '100%');
+
+  let rul = panes['contents']['rules'];
+  rul['container'] = svg.append('g')
+    .attr('id', 'rulesContainer');
+  rul['container'].append('foreignObject');
+  rul['inner'] = rul['container'].select('foreignObject').append('xhtml:div')
+    .attr('id', 'rulesInner')
     .attr('xmlns', 'http://www.w3.org/1999/xhtml')
     .style('overflow', 'auto')
     .style('width', '100%')
@@ -282,11 +329,11 @@ function resizeSVG() {
     if (div['orientation'] == 'vertical') {
       div['border']
         .attr('height', height)
-        .attr('x', div['percentage'] * width - 1);
+        .attr('x', div['percentage'] * width - 2);
     } else if (div['orientation'] == 'horizontal') {
       div['border']
         .attr('width', width)
-        .attr('y', div['percentage'] * height - 1);
+        .attr('y', div['percentage'] * height - 2);
     }
   }
 
@@ -303,23 +350,28 @@ function dragDivider() {
   if (div['orientation'] == 'vertical') {
     let newPercent = x / width;
     div['percentage'] = newPercent;
-    div['border'].attr('x', newPercent * width - 1);
-  } else if (div['orientation'] == 'vertical') {
+    div['border'].attr('x', newPercent * width - 2);
+  } else if (div['orientation'] == 'horizontal') {
     let newPercent = y / height;
     div['percentage'] = newPercent;
-    div['border'].attr('y', newPercent * height - 1);
+    div['border'].attr('y', newPercent * height - 2);
   }
 
   adjustPanes();
 }
 
 function adjustPanes() {
+  let taken = [];
+  for (let frame of panes['frames']) {
+    taken.push(panes['frames']['contents']);
+  }
+
   for (let index in panes['frames']) {
     let frame = panes['frames'][index];
-    let top = frame['bounds'][0] == null ? 0 : panes['dividers'][ frame['bounds'][0] ]['percentage'] * height + 1,
-        right = frame['bounds'][1] == null ? width : panes['dividers'][ frame['bounds'][1] ]['percentage'] * width - 1,
-        bottom = frame['bounds'][2] == null ? height : panes['dividers'][ frame['bounds'][2] ]['percentage'] * height - 1,
-        left = frame['bounds'][3] == null ? 0 : panes['dividers'][ frame['bounds'][3] ]['percentage'] * width + 1;
+    let top = frame['bounds'][0] == null ? 0 : panes['dividers'][ frame['bounds'][0] ]['percentage'] * height + 2,
+        right = frame['bounds'][1] == null ? width : panes['dividers'][ frame['bounds'][1] ]['percentage'] * width - 2,
+        bottom = frame['bounds'][2] == null ? height : panes['dividers'][ frame['bounds'][2] ]['percentage'] * height - 2,
+        left = frame['bounds'][3] == null ? 0 : panes['dividers'][ frame['bounds'][3] ]['percentage'] * width + 2;
 
     frame['position'] = {'x': left, 'y': top};
     frame['dimensions'] = {'width': right - left, 'height': bottom - top};
@@ -335,13 +387,29 @@ function adjustPanes() {
       .attr('width', right - left)
       .attr('height', bottom - top);
 
+    frame['switcher'].attr('x', left).attr('y', top);
+
+    let selector = frame['switcher'].select('select');
+    selector.selectAll('option').remove();
+    for (let key in panes['contents']) {
+      // console.log('key:', key);
+      let option = selector.append('option')
+        .attr('value', key)
+        .html(panes['contents'][key]['shortname']);
+
+      if (key == frame['contents']) {
+        option.property('selected', true);
+      } else if (taken.indexOf(key) > -1) {
+        option.property('disabled', true);
+      }
+    }
+
     if (frame['contents']) {
       let contents = panes['contents'][frame['contents']];
       contents['reposition'](contents['container'], left, top, right - left, bottom - top);
       contents['container'].attr('clip-path', 'url(#clippath' + index + ')');
     }
   }
-
 }
 
 function drawSync() {

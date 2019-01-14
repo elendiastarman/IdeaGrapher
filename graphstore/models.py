@@ -421,6 +421,16 @@ class FloatField(MongoField):
       self.value = self.value - ((self.value + self.step / 2) % self.step) + self.step / 2
 
 
+class BooleanField(MongoField):
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+
+  def validate(self):
+    super().validate()
+    if not isinstance(self.value, bool):
+      raise ValueError("Value must be {}, not {}.".format(bytes, type(self.value)))
+
+
 class StringField(MongoField):
   def __init__(self, **kwargs):
     kwargs.setdefault('max_length', 0)

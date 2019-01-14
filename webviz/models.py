@@ -1,4 +1,4 @@
-from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BinaryField, ListField, EnumField, DictField, NestedField, FloatField
+from graphstore.models import MongoModel, MongoIndex, ObjectNotFound, Graph, Node, Link, ModelField, StringField, BinaryField, ListField, EnumField, DictField, NestedField, FloatField, IntegerField, BooleanField
 import bcrypt
 import random
 import string
@@ -107,7 +107,13 @@ class Web(MongoModel):
 
 
 class Rule(MongoModel):
-  type = EnumField(['constraint', 'transformation'])
+  name = StringField(default='')
+  active = BooleanField(default=False)
+  trigger = EnumField(['button', 'tick'], default='button')
+  frequency = IntegerField(nullable=True, min=1)
+  target_class = EnumField(['document', 'rule', 'web', 'edge', 'vertex', 'graph', 'link', 'node'])
+  filter_func = StringField(nullable=True)
+  transform_func = StringField()
   data = DictField()
 
 

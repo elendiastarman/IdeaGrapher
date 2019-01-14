@@ -114,6 +114,24 @@ class StringField extends BaseField {
   }
 }
 
+class TextField extends StringField {
+  _getType() {
+    return 'text';
+  }
+
+  addInput(container, editable) {
+    let input = container.append('textarea')
+      .property('value', this.value)
+      .style('height', '100px');
+    this.applyDefaultInputStyling(input, editable);
+    this._input = input;
+  }
+
+  applyChanges() {
+    this._value = this._input.property('value');
+  }
+}
+
 class NumberField extends BaseField {
   constructor(params) {
     super(params)
@@ -250,6 +268,14 @@ class ListField extends BaseField {
     return this._value.pop();
   }
 
+  addInputElement(container, element, editable) {
+    if (this.fieldClass == ModelField) {
+      element._populateContainer(container);
+    } else {
+      element.addInput(container, editable);
+    }
+  }
+
   addInput(container, editable) {
     let temp = container.append('div');
     this._input = temp;
@@ -288,9 +314,66 @@ class ListField extends BaseField {
 
     inputDiv.append('hr');
     for (let index in this.value) {
-      this.value[index]._populateContainer(inputDiv);
+      this.addInputElement(inputDiv, this.value[index], editable);
     }
     inputDiv.append('hr');
+
+    let tempFunc = function(box, list, canEdit){ return function(){
+      list.push({});
+      addInputElement(box, list.value[list.value.length - 1], canEdit);
+    }};
+    div.append('a')
+      .attr('id', 'add' + randomId)
+      .attr('href', '').text('+ Add one')
+      .on('click', tempFunc(inputDiv, this, editable));
+  }
+}
+
+class EnumField extends BaseField {
+  constructor(params) {
+    super(params)
+    this.choices = params.choices || [];
+
+    if (this.choices.length < 1) {
+      throw new Error("EnumField needs at least one choice.");
+    }
+  }
+
+  _getType() {
+    return 'enum';
+  }
+
+  validate(value) {
+    super.validate(value);
+
+    if (value == null) { return; }
+
+    if (typeof value !== 'string') {
+      throw new Error("Value '" + value + "' is not a string.");
+    } else if (this.choices.indexOf(value) == -1) {
+      throw new Error("Value '" + value + "' is not in the choices '" + this.choices + "'.");
+    }
+  }
+
+  addInput(container, editable) {
+    let input = container.append('select');
+
+    for (let choice of this.choices) {
+      let option = input.append('option')
+        .attr('value', choice)
+        .html(choice);
+
+      if (choice == this.value) {
+        option.property('selected', true);
+      }
+    }
+
+    this.applyDefaultInputStyling(input, editable);
+    this._input = input;
+  }
+
+  applyChanges() {
+    this.value = this._input.node().value;
   }
 }
 
@@ -619,6 +702,7 @@ class Document extends BaseModel {
     return {
       'name': new StringField({default: '', placeholder: 'Untitled'}),
       'webs': new ListField(ModelField, ['Web', {}], {}),
+      'rules': new ListField(ModelField, ['Rule', {}], {}),
       'data': new DictField({}),
     }
   }
@@ -627,8 +711,50 @@ class Document extends BaseModel {
     return [
       ['name', true],
       ['webs', false],
+      ['rules', true],
       ['data', true],
     ]
+  }
+}
+
+class Rule extends BaseModel {
+  _modelName() { return 'Rule'; }
+  _getFields() {
+    return {
+      'name': new StringField({default: '', placeholder: 'Untitled'}),
+      'active': new BooleanField({default: false}),
+      'trigger': new EnumField({choices: ['button', 'tick'], default: 'button'}),
+      'frequency': new NumberField({nullable: true, min: 1}),
+      'targetClass': new EnumField({choices: ['document', 'rule', 'web', 'edge', 'vertex', 'graph', 'link', 'node']}),
+      'filterFunc': new TextField({nullable: true}),
+      'transformFunc': new TextField({}),
+      'data': new DictField({}),
+    }
+  }
+
+  _getDataFields() {
+    return [
+      ['name', true],
+      ['webs', false],
+      ['rules', true],
+      ['data', true],
+    ]
+  }
+
+  static _defaultData(extraData) {
+    let data = {
+      'id': objectIdStockpile.pop(),
+    }
+
+    if (extraData) {
+      if (extraData['data']) {
+        data['data'] = Object.assign({}, data['data'], extraData['data']);
+        delete extraData['data'];
+      }
+      data = Object.assign({}, data, extraData);
+    }
+
+    return data;
   }
 }
 
@@ -958,6 +1084,7 @@ class ModelLookup {
 var modelRefs = {};
 var modelMap = {
   'Document': Document,
+  'Rule': Rule,
   'Web': Web,
   'Edge': Edge,
   'Vertex': Vertex,
@@ -965,7 +1092,7 @@ var modelMap = {
   'Link': Link,
   'Node': Node,
 }
-var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web', 'Document'];
+var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web', 'Rule', 'Document'];
 for (let modelName in modelMap) {
   modelRefs[modelName] = {};
 }
