@@ -109,7 +109,7 @@ class Web(MongoModel):
 class Rule(MongoModel):
   name = StringField(default='')
   active = BooleanField(default=False)
-  trigger = EnumField(['button', 'tick'], default='button')
+  trigger = EnumField(['button', 'tick', 'change', 'periodic'], default='button')
   frequency = IntegerField(nullable=True, min=1)
   target_model = EnumField(['Document', 'Rule', 'Web', 'Edge', 'Vertex', 'Graph', 'Link', 'Node'], default='Vertex')
   filter_func = StringField(nullable=True)

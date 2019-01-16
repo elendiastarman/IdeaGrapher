@@ -571,6 +571,31 @@ function step() {
     changed = changed || true;
   }
 
+  for (let rule of models['rules']) {
+    if (rule.active.value) {
+      let runRule = false;
+
+      if (rule.trigger.value == 'tick') {
+        runRule = true;
+      } else if (rule.trigger.value == 'change' && changed) {
+        runRule = true;
+      }
+
+      if (runRule) {
+        rule._applyRule();
+      }
+    }
+
+    if (rule.trigger.value == 'periodic') {
+      if (rule.active.value && rule._interval == null && rule.frequency.value) {
+        rule._interval = setInterval((function(r){ return function(){ r._applyRule(); }; })(rule), rule.frequency.value);
+      } else if (!rule.active.value && rule._interval != null) {
+        clearInterval(rule._interval);
+        rule._interval = null;
+      }
+    }
+  }
+
   if (changed) {
     // populateSelectedPane(selected[selected.length - 1]);
     draw();

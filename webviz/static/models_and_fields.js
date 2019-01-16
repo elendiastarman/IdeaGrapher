@@ -791,6 +791,8 @@ class Rule extends BaseModel {
     if (this.transformFunc.value != null) {
       this._transformFunc = new Function('return ' + this.transformFunc.value)();
     }
+
+    this._interval = null; // for startInterval and cancelInterval
   }
 
   _modelName() { return 'Rule'; }
@@ -798,7 +800,7 @@ class Rule extends BaseModel {
     return {
       'name': new StringField({default: '', placeholder: 'Untitled'}),
       'active': new BooleanField({default: false}),
-      'trigger': new EnumField({choices: ['button', 'tick'], default: 'button'}),
+      'trigger': new EnumField({choices: ['button', 'tick', 'change', 'periodic'], default: 'button'}),
       'frequency': new NumberField({nullable: true, min: 1}),
       'targetModel': new EnumField({choices: ['Document', 'Rule', 'Web', 'Edge', 'Vertex', 'Graph', 'Link', 'Node'], default: 'Vertex'}),
       'filterFunc': new TextField({nullable: true}),
