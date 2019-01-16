@@ -1240,8 +1240,6 @@ function handleDoubleClick() {
 function createVertex(x, y) {
   let newNode = new Node(Node._defaultData({'data': {'size': 100}}), false);
   let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id, 'data': {'shortname': 'text'}}), false);
-  models['nodes'].add(newNode);
-  models['vertices'].add(newVertex);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
   topWeb['vertices'].push(newVertex.id);
@@ -1252,14 +1250,10 @@ function createVertex(x, y) {
 
 function createSubweb(vertex) {
   let newGraph = new Graph(Graph._defaultData(), false);
-  console.log('newGraph:', newGraph);
-  console.log('newGraph.id:', newGraph.id);
   let newWeb = new Web(Web._defaultData({'graph': newGraph.id}), false);
+
   vertex.node.subgraphs.push(newGraph.id);
   vertex.subwebs.push(newWeb.id);
-
-  models['graphs'].add(newGraph);
-  models['webs'].add(newWeb);
 
   drawSync();
 }
@@ -1267,8 +1261,6 @@ function createSubweb(vertex) {
 function makeEdge(start_vertex, end_vertex) {
   let newLink = new Link(Link._defaultData({'sources': [start_vertex['node'].value.id], 'sinks': [end_vertex['node'].value.id]}), false);
   let newEdge = new Edge(Edge._defaultData({'start_vertices': [start_vertex.id], 'end_vertices': [end_vertex.id], 'link': newLink.id}), false);
-  models['links'].add(newLink);
-  models['edges'].add(newEdge);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
   topWeb['edges'].push(newEdge.id);
@@ -1362,9 +1354,6 @@ function selectClosestElement() {
         break;
       }
     }
-
-    console.log(temp['makingEdge']['start']);
-    console.log(end);
 
     if (end && end.id != temp['makingEdge']['start'].id) {
       makeEdge(temp['makingEdge']['start'], end);

@@ -74,6 +74,7 @@ class BaseField {
     input
       .style('width', '95%')
       .property('disabled', !editable)
+      .on('focusout', tempFunc(this))
       .on('change', tempFunc(this));
   }
 }
@@ -123,14 +124,14 @@ class TextField extends StringField {
 
   addInput(container, editable) {
     let input = container.append('textarea')
-      .property('value', this.value)
+      .property('value', this.value == null ? '' : this.value)
       .style('height', '100px');
     this.applyDefaultInputStyling(input, editable);
     this._input = input;
   }
 
   applyChanges() {
-    this._value = this._input.property('value');
+    this.value = this._input.property('value');
   }
 }
 
@@ -576,7 +577,7 @@ class DictField extends BaseField {
   }
 
   applyChanges() {
-    this._value = JSON.parse(this._input.property('value'));
+    this.value = JSON.parse(this._input.property('value'));
   }
 }
 
@@ -666,9 +667,13 @@ class NestedField extends BaseField {
 }
 
 
+function snakify(name) {
+  return name.replace(/[A-Z]/g, function(match){ return '_' + match.toLowerCase(); });
+}
+
+
 class BaseModel {
   constructor(data, deserializing) {
-    // console.log(data, deserializing);
     let modelName = this._modelName();
     if (typeof data == 'string') {
       let model = modelRefs[modelName][data];
@@ -694,7 +699,7 @@ class BaseModel {
         'enumerable': true,
         'get': () => this._fields[field],
       });
-      this._fields[field].value = this._fields[field].deserialize(data[field]);
+      this._fields[field].value = this._fields[field].deserialize(data[snakify(field)]);
     }
 
     modelRefs[modelName][id] = this;
@@ -769,6 +774,20 @@ class Document extends BaseModel {
 }
 
 class Rule extends BaseModel {
+  constructor(...args) {
+    super(...args);
+
+    this._filterFunc = null;
+    if (this.filterFunc.value != null) {
+      this._filterFunc = new Function('return ' + this.filterFunc.value)();
+    }
+
+    this._transformFunc = null;
+    if (this.transformFunc.value != null) {
+      this._transformFunc = new Function('return ' + this.transformFunc.value)();
+    }
+  }
+
   _modelName() { return 'Rule'; }
   _getFields() {
     return {
@@ -776,7 +795,7 @@ class Rule extends BaseModel {
       'active': new BooleanField({default: false}),
       'trigger': new EnumField({choices: ['button', 'tick'], default: 'button'}),
       'frequency': new NumberField({nullable: true, min: 1}),
-      'targetClass': new EnumField({choices: ['document', 'rule', 'web', 'edge', 'vertex', 'graph', 'link', 'node'], default: 'vertex'}),
+      'targetModel': new EnumField({choices: ['Document', 'Rule', 'Web', 'Edge', 'Vertex', 'Graph', 'Link', 'Node'], default: 'Vertex'}),
       'filterFunc': new TextField({nullable: true}),
       'transformFunc': new TextField({nullable: true}),
       'data': new DictField({}),
@@ -789,7 +808,7 @@ class Rule extends BaseModel {
       ['active', true],
       ['trigger', true],
       ['frequency', true],
-      ['targetClass', true],
+      ['targetModel', true],
       ['filterFunc', true],
       ['transformFunc', true],
       ['data', true],
@@ -810,6 +829,34 @@ class Rule extends BaseModel {
     }
 
     return data;
+  }
+
+  _populateContainer(container) {
+    super._populateContainer(container);
+
+    let tempFunc = function(self){ return function(){ self._applyRule(); }; };
+    container.insert('button', 'p + p')
+      .attr('id', 'apply' + this.id)
+      .html('Apply')
+      .on('click', tempFunc(this));
+  }
+
+  _applyRule() {
+    let targetModel = this.targetModel.value;
+    console.log('applying rule on ' + targetModel);
+
+    if (this._transformFunc == null) {
+      console.log('transformFunc is null');
+      return;
+    }
+
+    for (let key in modelRefs[targetModel]) {
+      let objData = modelRefs[targetModel][key];
+      let svgId = targetModel == 'Web' ? 'web' + objData.id : objData.id;
+      let objSVG = d3.select('[id=\'' + svgId + '\']');
+
+      this._transformFunc({'id': objData.id, 'data': objData, 'svgId': svgId, 'objSVG': objSVG});
+    }
   }
 }
 
@@ -1253,7 +1300,7 @@ function saveDirtyModels() {
           let datum = {
             '$action': 'overwrite',
             '$type': field._getType(),
-            '$key': key,
+            '$key': snakify(key),
           };
 
           if (datum['$type'] == 'model') {
