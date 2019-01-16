@@ -65,6 +65,12 @@ class BaseField {
     throw new Error('Input method not yet implemented!');
   }
 
+  setIfDifferent(newValue) {
+    if (this.value != newValue) {
+      this.value = newValue;
+    }
+  }
+
   applyChanges() {
     throw new Error('Method for applying changes not yet implemented!');
   }
@@ -113,7 +119,7 @@ class StringField extends BaseField {
   }
 
   applyChanges() {
-    this.value = this._input.property('value');
+    this.setIfDifferent(this._input.property('value'));
   }
 }
 
@@ -128,10 +134,6 @@ class TextField extends StringField {
       .style('height', '100px');
     this.applyDefaultInputStyling(input, editable);
     this._input = input;
-  }
-
-  applyChanges() {
-    this.value = this._input.property('value');
   }
 }
 
@@ -164,7 +166,7 @@ class BooleanField extends BaseField {
   }
 
   applyChanges() {
-    this.value = this._input.node().checked;
+    this.setIfDifferent(this._input.node().checked);
   }
 }
 
@@ -210,7 +212,7 @@ class NumberField extends BaseField {
   }
 
   applyChanges() {
-    this.value = Number(this._input.property('value'));
+    this.setIfDifferent(Number(this._input.property('value')));
   }
 }
 
@@ -425,7 +427,7 @@ class EnumField extends BaseField {
   }
 
   applyChanges() {
-    this.value = this._input.node().value;
+    this.setIfDifferent(this._input.node().value);
   }
 }
 
@@ -530,7 +532,7 @@ class ModelField extends BaseField {
   }
 
   applyChanges() {
-    this.value = this._input.select('.input').property('value');
+    this.setIfDifferent(this._input.select('.input').property('value'));
   }
 }
 
@@ -577,7 +579,10 @@ class DictField extends BaseField {
   }
 
   applyChanges() {
-    this.value = JSON.parse(this._input.property('value'));
+    let newValue = this._input.property('value');
+    if (newValue != JSON.stringify(this.value, null, 2)) {
+      this.value = JSON.parse(newValue);
+    }
   }
 }
 
