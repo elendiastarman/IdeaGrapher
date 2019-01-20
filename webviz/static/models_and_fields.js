@@ -364,6 +364,10 @@ class ListField extends BaseField {
     }
     inputDiv.append('hr');
 
+    if (!editable) {
+      return;
+    }
+
     let tempFunc = function(box, list, canEdit){ return function(){
       d3.event.preventDefault();
       if (list.fieldClass == ModelField) {
