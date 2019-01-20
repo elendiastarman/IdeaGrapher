@@ -562,7 +562,7 @@ function addToSelected(element, deselectAll) {
   
   if (element instanceof Vertex || element instanceof Edge) {
     d3.select('[id=\'' + element.id + '\']').select('.highlight')
-      .style('visibility', 'visible');
+      .style('visibility', 'inherit');
   }
 }
 
