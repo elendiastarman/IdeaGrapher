@@ -445,6 +445,11 @@ function drawSync() {
       .attr('class', 'vertex')
       .attr('id', function(d){ return d; });
     vEnterGroup.append('circle')
+      .attr('class', 'highlight')
+      .attr('fill', 'yellow')
+      .style('visibility', 'hidden');
+    vEnterGroup.append('circle')
+      .attr('class', 'circle')
       .attr('stroke', 'black');
     vEnterGroup.append('text')  // text: white outline
       .attr('class', 'outer')
@@ -475,8 +480,12 @@ function drawSync() {
       .attr('class', 'edge')
       .attr('id', function(d){ return d; });
     eEnterGroup.append('line')
-      .attr('stroke', 'black')
-      .attr('stroke-wdith', '2px');
+      .attr('class', 'highlight')
+      .attr('stroke', 'yellow')
+      .style('visibility', 'hidden');
+    eEnterGroup.append('line')
+      .attr('class', 'line')
+      .attr('stroke', 'black');
 
     eData.exit().remove();
   }
@@ -508,7 +517,9 @@ function draw() {
     let vData = d3.select('#web' + web.id).select('.vertices').selectAll('.vertex').data(web['vertices'].serialize(), function(d){ return d; });
     vData
       .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')'; });
-    vData.select('circle')
+    vData.select('circle.highlight')
+      .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])) + 4 / vScale; });
+    vData.select('circle.circle')
       .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); })
       .attr('stroke-width', (2 / vScale) + 'px')
       .attr('fill', function(d){ return models['vertices'][d]['screen']['color'] || 'gray'; });
@@ -524,12 +535,34 @@ function draw() {
       .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); });
 
     let eData = d3.select('#web' + web.id).select('.edges').selectAll('.edge').data(web['edges'].serialize(), function(d){ return d; });
-    eData.selectAll('line')
+    eData.selectAll('line.highlight')
+      .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
+      .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
+      .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
+      .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
+      .attr('stroke-width', function(d){ return (4 / vScale) + 'px'; });
+    eData.selectAll('line.line')
       .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
       .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
       .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
       .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
       .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
+  }
+}
+
+function addToSelected(element, deselectAll) {
+  if (deselectAll != false) {
+    selected = [];
+    d3.selectAll('.highlight')
+      .style('visibility', 'hidden');
+  }
+  if (element != null) {
+    selected.push(element);
+  }
+  
+  if (element instanceof Vertex || element instanceof Edge) {
+    d3.select('[id=\'' + element.id + '\']').select('.highlight')
+      .style('visibility', 'visible');
   }
 }
 
@@ -544,12 +577,55 @@ function populateSelectedPane(element) {
   }
 }
 
-function highlightSelected() {
-  for (let index in selected) {
-    let item = selected[index];
-    // if
-  }
-}
+// function highlightSelected() {
+//   svg.selectAll('.highlights').selectAll('*').remove();
+
+//   for (let index in selected) {
+//     let item = selected[index];
+    
+//     if (item instanceof Vertex) {
+//       let vGroup = d3.select('[id=\'' + item.id + '\']');
+//       let transformData = vGroup.attr('transform');
+//       let [cx, cy] = transformData.substring(10, transformData.length - 1).split(',');
+
+//       let parentWeb = d3.select(vGroup.node().parentNode.parentNode);
+//       let scale = parentWeb.attr('transform').split(' ')[1];
+//       scale = Number(scale.substring(6, scale.length - 1));
+
+//       parentWeb.select('.highlights').append('circle')
+//         .attr('class', 'vertex')
+//         .attr('id', 'for' + item.id)
+//         .attr('cx', cx)
+//         .attr('cy', cy)
+//         .attr('fill', 'yellow');
+//     }
+//   }
+// }
+
+// function drawHighlights() {
+//   svg.selectAll('.highlights').selectAll('*').remove();
+
+//   for (let index in selected) {
+//     let item = selected[index];
+//     let element = d3.select('[id=for\'' + item.id + '\']');
+    
+//     if (item instanceof Vertex) {
+//       let vGroup = 
+//       let transformData = vGroup.attr('transform');
+//       let [cx, cy] = transformData.substring(10, transformData.length - 1).split(',');
+
+//       let parentWeb = d3.select(vGroup.node().parentNode.parentNode);
+//       let scale = parentWeb.attr('transform').split(' ')[1];
+//       scale = Number(scale.substring(6, scale.length - 1));
+
+//       parentWeb.select('.highlights').append('circle')
+//         .attr('class', 'vertex')
+//         .attr('cx', cx)
+//         .attr('cy', cy)
+//         .attr('fill', 'yellow');
+//     }
+//   }
+// }
 
 var doPhysics = false;
 function start() {
@@ -1362,7 +1438,7 @@ function selectClosestElement() {
 
   if (targets.length <= 1) {
     populateSelectedPane();
-    highlightSelected();
+    addToSelected(null);
     return;
   }
 
@@ -1402,20 +1478,10 @@ function selectClosestElement() {
       temp['makingEdge'] = {'start': start};
       selected.push(start);
       populateSelectedPane(start);
-      highlightSelected();
+      addToSelected(start);
     }
 
   } else if (mouseState['lastReleased'] == 1) {
-
-    // deselect any currently selected vertices or edges
-    let i = 0;
-    while (i < selected.length) {
-      if (selected[i]['type'] == 'vertex' || selected[i]['type'] == 'edge') {
-        selected.splice(i, 1);
-      } else {
-        i += 1;
-      }
-    }
 
     // Given a choice between a vertex and an edge, pick the vertex.
     let closestVertex = null;
@@ -1431,11 +1497,8 @@ function selectClosestElement() {
     }
 
     let closestElement = closestVertex || closestEdge;
-    if (closestElement) {
-      selected.push(closestVertex || closestEdge);
-    }
-    populateSelectedPane(closestVertex || closestEdge);
-    highlightSelected();
+    addToSelected(closestElement);
+    populateSelectedPane(closestElement);
   }
 }
 
