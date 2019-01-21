@@ -856,6 +856,12 @@ class Rule extends BaseModel {
     let targetModel = this.targetModel.value;
     console.log('applying rule on ' + targetModel);
 
+    if (this.transformFunc.value == null || this.transformFunc.value == '') {
+      this._transformFunc = null;
+    } else {
+      this._transformFunc = new Function('return ' + this.transformFunc.value)();
+    }
+
     if (this._transformFunc == null) {
       console.log('transformFunc is null');
       return;

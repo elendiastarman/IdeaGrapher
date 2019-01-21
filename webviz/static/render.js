@@ -669,6 +669,11 @@ function step() {
         clearInterval(rule._interval);
         rule._interval = null;
       }
+    } else {
+      if (rule._interval != null) {
+        clearInterval(rule._interval);
+        rule._interval = null;
+      }
     }
   }
 
@@ -1341,33 +1346,45 @@ function handleDoubleClick() {
 function createVertex(x, y) {
   let newNode = new Node(Node._defaultData({'data': {'size': 100}}), false);
   let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id, 'data': {'shortname': 'text'}}), false);
+  models['nodes'].add(newNode);
+  models['vertices'].add(newVertex);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
   topWeb['vertices'].push(newVertex.id);
   topWeb.graph['nodes'].push(newNode.id);
 
   drawSync();
+  addToSelected(newVertex);
+  populateSelectedPane(newVertex);
 }
 
 function createSubweb(vertex) {
   let newGraph = new Graph(Graph._defaultData(), false);
   let newWeb = new Web(Web._defaultData({'graph': newGraph.id}), false);
+  models['graphs'].add(newGraph);
+  models['webs'].add(newWeb);
 
   vertex.node.subgraphs.push(newGraph.id);
   vertex.subwebs.push(newWeb.id);
 
   drawSync();
+  addToSelected(newWeb);
+  populateSelectedPane(newWeb);
 }
 
 function makeEdge(start_vertex, end_vertex) {
   let newLink = new Link(Link._defaultData({'sources': [start_vertex['node'].value.id], 'sinks': [end_vertex['node'].value.id]}), false);
   let newEdge = new Edge(Edge._defaultData({'start_vertices': [start_vertex.id], 'end_vertices': [end_vertex.id], 'link': newLink.id}), false);
+  models['links'].add(newLink);
+  models['edges'].add(newEdge);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
   topWeb['edges'].push(newEdge.id);
   topWeb.graph['links'].push(newLink.id);
 
   drawSync();
+  addToSelected(newEdge);
+  populateSelectedPane(newEdge);
 }
 
 function zoomToVertex(vertex) {
