@@ -143,9 +143,6 @@ function init() {
   while (enterOrExitSubweb(-1));
   draw();
 
-  $('#start').on('click', start);
-  $('#stop').on('click', stop);
-  $('#step').on('click', step);
   $('#docname').on('focusout', saveDocname);
   $(window).on('resize', resizeSVG);
 
@@ -159,7 +156,6 @@ function init() {
     }
   });
 
-  // start();
   let delay = 20;
   loopTimer = setInterval(step, delay);
 }
@@ -577,75 +573,11 @@ function populateSelectedPane(element) {
   }
 }
 
-// function highlightSelected() {
-//   svg.selectAll('.highlights').selectAll('*').remove();
-
-//   for (let index in selected) {
-//     let item = selected[index];
-    
-//     if (item instanceof Vertex) {
-//       let vGroup = d3.select('[id=\'' + item.id + '\']');
-//       let transformData = vGroup.attr('transform');
-//       let [cx, cy] = transformData.substring(10, transformData.length - 1).split(',');
-
-//       let parentWeb = d3.select(vGroup.node().parentNode.parentNode);
-//       let scale = parentWeb.attr('transform').split(' ')[1];
-//       scale = Number(scale.substring(6, scale.length - 1));
-
-//       parentWeb.select('.highlights').append('circle')
-//         .attr('class', 'vertex')
-//         .attr('id', 'for' + item.id)
-//         .attr('cx', cx)
-//         .attr('cy', cy)
-//         .attr('fill', 'yellow');
-//     }
-//   }
-// }
-
-// function drawHighlights() {
-//   svg.selectAll('.highlights').selectAll('*').remove();
-
-//   for (let index in selected) {
-//     let item = selected[index];
-//     let element = d3.select('[id=for\'' + item.id + '\']');
-    
-//     if (item instanceof Vertex) {
-//       let vGroup = 
-//       let transformData = vGroup.attr('transform');
-//       let [cx, cy] = transformData.substring(10, transformData.length - 1).split(',');
-
-//       let parentWeb = d3.select(vGroup.node().parentNode.parentNode);
-//       let scale = parentWeb.attr('transform').split(' ')[1];
-//       scale = Number(scale.substring(6, scale.length - 1));
-
-//       parentWeb.select('.highlights').append('circle')
-//         .attr('class', 'vertex')
-//         .attr('cx', cx)
-//         .attr('cy', cy)
-//         .attr('fill', 'yellow');
-//     }
-//   }
-// }
-
-var doPhysics = false;
-function start() {
-  doPhysics = true;
-}
-
-function stop() {
-  doPhysics = false;
-}
-
 function step() {
   let changed = false;
   changed = updateMouseState() || changed;
   changed = respondToScrollInput() || changed;
   changed = executeContinuousTriggers() || changed;
-
-  if (doPhysics) {
-    // stepPhysics();
-    changed = changed || true;
-  }
 
   for (let rule of models['rules']) {
     if (rule.active.value) {
@@ -678,7 +610,6 @@ function step() {
   }
 
   if (changed) {
-    // populateSelectedPane(selected[selected.length - 1]);
     draw();
   }
 }
@@ -710,118 +641,6 @@ function saveDocname() {
     });
   }
 }
-
-// var cumulativeAccel = {};
-// var twiddle = 0.1;
-// var stepSize = 0.1;
-// var initDrag = 1;
-
-// function stepPhysics() {
-//   let logger = [false, false];
-
-//   for (let vid in models['vertices']) {
-//     cumulativeAccel[vid] = origingravity(vid);
-//   }
-
-//   for (let pairId in pairs) {
-//     let pair = pairs[pairId];
-//     let vids = pairId.split('_');
-//     let offset;
-
-//     if(pair['edge']) {
-//       offset = displace(vids[0], vids[1], pair['edge']);
-//     } else {
-//       offset = antigravity(vids[0], vids[1]);
-//     }
-
-//     cumulativeAccel[vids[0]][0] += offset[0];
-//     cumulativeAccel[vids[0]][1] += offset[1];
-//     cumulativeAccel[vids[1]][0] += offset[2];
-//     cumulativeAccel[vids[1]][1] += offset[3];
-//   }
-
-//   drag = initDrag / Math.pow((Date.now() - startTime) / 500000 + 1, 1./4);
-//   for (let vid in models['vertices']) {
-//     models['vertices'][vid]['screen']['xv'] = drag * (models['vertices'][vid]['screen']['xv'] + stepSize * cumulativeAccel[vid][0]);
-//     models['vertices'][vid]['screen']['yv'] = drag * (models['vertices'][vid]['screen']['yv'] + stepSize * cumulativeAccel[vid][1]);
-
-//     models['vertices'][vid]['screen']['x'] += stepSize * models['vertices'][vid]['screen']['xv'];
-//     models['vertices'][vid]['screen']['y'] += stepSize * models['vertices'][vid]['screen']['yv'];
-//   }
-// }
-
-// var maxForceStrength = 2;
-// var minForceStrength = -maxForceStrength;
-// var minDist = 2;
-
-// function displace(v1id, v2id, link) {
-//   let closenessMultiplier = 1;
-//   let strengthMultiplier = 1.5;
-//   let v1x = vertices[v1id]['screen']['x'],
-//       v1y = vertices[v1id]['screen']['y'],
-//       v2x = vertices[v2id]['screen']['x'],
-//       v2y = vertices[v2id]['screen']['y'];
-
-//   let dist = Math.sqrt(Math.pow(v1x - v2x, 2) + Math.pow(v1y - v2y, 2));
-//   dist = Math.max(dist, minDist);
-
-//   let diff = link['closeness'] * closenessMultiplier - dist;
-//   let force = diff * link['strength'] * strengthMultiplier * twiddle;
-
-//   force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
-
-//   let off1x = force * (v1x - v2x) / dist,
-//     off1y = force * (v1y - v2y) / dist,
-//     off2x = force * (v2x - v1x) / dist,
-//     off2y = force * (v2y - v1y) / dist;
-
-//   return [off1x, off1y, off2x, off2y];
-// }
-
-// function antigravity(v1id, v2id) {
-//   let closenessMultiplier = 1;
-//   let strengthMultiplier = 1;
-//   let v1x = vertices[v1id]['screen']['x'],
-//       v1y = vertices[v1id]['screen']['y'],
-//       v2x = vertices[v2id]['screen']['x'],
-//       v2y = vertices[v2id]['screen']['y'];
-
-//   let dist = Math.sqrt(Math.pow(v1x - v2x, 2) + Math.pow(v1y - v2y, 2));
-//   dist = Math.max(dist, minDist);
-//   // let diff = link['closeness'] * closenessMultiplier - dist;
-//   // let force = diff * link['strength'] * strengthMultiplier;
-//   let force = 10 * twiddle / Math.pow(dist + 100, 1/2);
-
-//   force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
-
-//   let off1x = force * (v1x - v2x) / dist,
-//     off1y = force * (v1y - v2y) / dist,
-//     off2x = force * (v2x - v1x) / dist,
-//     off2y = force * (v2y - v1y) / dist;
-
-//   return [off1x, off1y, off2x, off2y];
-// }
-
-// function origingravity(vid) {
-//   let vertx = vertices[vid]['screen']['x'],
-//       verty = vertices[vid]['screen']['y'];
-//   let dist = Math.sqrt(vertx * vertx + verty * verty);
-//   dist = Math.max(dist, minDist);
-
-//   let force = -1./20 * twiddle * Math.pow(dist + 100, 1./1);
-
-//   force = Math.min(Math.max(force, minForceStrength), maxForceStrength);
-
-//   let offx = force * vertx / dist;
-//       offy = force * verty / dist;
-
-//   return [offx, offy];
-// }
-
-// function dis(x1, y1, x2, y2) {
-//   return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
-// }
-
 
 var now = Date.now();
 var mouseEvents = [[[null, null]], [], [], [], []]; // mousemove, left button, middle button, right button, scroll wheel
