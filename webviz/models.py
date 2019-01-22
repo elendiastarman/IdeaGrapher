@@ -90,6 +90,10 @@ class Edge(MongoModel):
   kind = EnumField(['connected', 'related', 'directed'], default='connected')
   start_vertices = ListField(ModelField(Vertex))
   end_vertices = ListField(ModelField(Vertex))
+  screen = NestedField(dict(
+    color=StringField(default='black'),
+    thickness=FloatField(default=3),
+  ))
   data = DictField()
 
 

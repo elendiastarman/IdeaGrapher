@@ -127,6 +127,10 @@ function init() {
   let defs = svg.append('defs');
   defs.append('g').attr('id', 'clippaths');
   defs.append('g').attr('id', 'webs');
+  defs.append('symbol').attr('id', 'linePointer')
+    .append('polygon')
+      .attr('points', '0,0 7,0 0,20')
+      .attr('stroke', 'black');
 
   initDividers();
   initFrames();
@@ -449,12 +453,16 @@ function drawSync() {
       .attr('stroke', 'black');
     vEnterGroup.append('text')  // text: white outline
       .attr('class', 'outer')
+      .style('font-family', 'Courier')
+      .style('font-weight', 'bold')
       .attr('text-anchor', 'middle')
       .attr('alignment-baseline', 'central')
       .style('fill', 'white')
       .style('stroke', 'black');
     vEnterGroup.append('text')  // text: black core
       .attr('class', 'inner')
+      .style('font-family', 'Courier')
+      .style('font-weight', 'bold')
       .attr('text-anchor', 'middle')
       .attr('alignment-baseline', 'central')
       .style('fill', 'white')
@@ -480,8 +488,10 @@ function drawSync() {
       .attr('stroke', 'yellow')
       .style('visibility', 'hidden');
     eEnterGroup.append('line')
-      .attr('class', 'line')
-      .attr('stroke', 'black');
+      .attr('class', 'line');
+    eEnterGroup.append('use')
+      .attr('xlink:href', '#linePointer')
+      .style('visibility', 'hidden');
 
     eData.exit().remove();
   }
@@ -523,9 +533,9 @@ function draw() {
       .text(function(d){ return models['vertices'][d]['data']['shortname']; })
       .attr('font-size', 16 / vScale );
     vData.select('text.outer')
-      .style('stroke-width', 5 / vScale);
+      .style('stroke-width', 4 / vScale);
     vData.select('text.inner')
-      .style('stroke-width', 1 / vScale);
+      .style('stroke-width', 0.25 / vScale);
 
     vData.select('.subwebContainer').select('circle')
       .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); });
@@ -536,13 +546,29 @@ function draw() {
       .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
       .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
       .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
-      .attr('stroke-width', function(d){ return (4 / vScale) + 'px'; });
+      .attr('stroke-width', function(d){ return ((models['edges'][d]['screen']['thickness'] + 4) / vScale) + 'px'; });
     eData.selectAll('line.line')
       .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
       .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
       .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
       .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
-      .attr('stroke-width', function(d){ return (2 / vScale) + 'px'; });
+      .attr('stroke-width', function(d){ return (models['edges'][d]['screen']['thickness'] / vScale) + 'px'; })
+      .attr('stroke', function(d){ return models['edges'][d]['screen']['color']; });
+    eData.selectAll('use')
+      .attr('transform', function(d){
+        let sv = models['edges'][d]['start_vertices'].value[0],
+            ev = models['edges'][d]['end_vertices'].value[0];
+        let svx = sv['screen']['x'],
+            svy = sv['screen']['y'],
+            evx = ev['screen']['x'],
+            evy = ev['screen']['y'];
+        let newX = svx + (evx - svx) * 0.55,
+            newY = svy + (evy - svy) * 0.55;
+        let rot = Math.atan2(evy - svy, evx - svx);
+        return 'translate(' + newX + ' ' + newY + ') scale(' + 1 / vScale + ') rotate(' + (rot * 180 / Math.PI - 90) + ') translate(' + (models['edges'][d]['screen']['thickness'] / 2) + ' 0)';
+      })
+      .style('visibility', function(d){ return models['edges'][d]['kind'].value == 'directed' ? 'inherit' : 'hidden'; })
+      .style('fill', function(d){ return models['edges'][d]['screen']['color']; });
   }
 }
 

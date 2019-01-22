@@ -932,7 +932,11 @@ class Edge extends BaseModel {
   _getFields() {
     return {
       'link': new ModelField('Link', {}),
-      'kind': new StringField({'default': 'connected'}),
+      'kind': new EnumField({choices: ['connected', 'directed', 'related'], default: 'connected'}),
+      'screen': new NestedField({'_fields': {
+        'thickness': new NumberField({'default': 3}),
+        'color': new StringField({'default': 'black'}),
+      }}),
       'start_vertices': new ListField(ModelField, ['Vertex', {}], {}),
       'end_vertices': new ListField(ModelField, ['Vertex', {}], {}),
       'data': new DictField({}),
@@ -942,7 +946,11 @@ class Edge extends BaseModel {
   _getDataFields() {
     return [
       ['link', false],
-      ['kind', false],
+      ['kind', true],
+      ['screen', [
+        ['thickness', true],
+        ['color', true],
+      ]],
       ['start_vertices', false],
       ['end_vertices', false],
       ['data', true],
