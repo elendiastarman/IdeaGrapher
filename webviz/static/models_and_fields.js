@@ -703,12 +703,45 @@ class BaseModel {
     this.id = id;
     this._fields = this._getFields();
 
-    for (let field in this._fields) {
-      Object.defineProperty(this, field, {
+    for (let fieldName in this._fields) {
+      let field = this._fields[fieldName];
+      Object.defineProperty(this, fieldName, {
         'enumerable': true,
-        'get': () => this._fields[field],
+        'get': () => field,
       });
-      this._fields[field].value = this._fields[field].deserialize(data[snakify(field)]);
+      field.value = field.deserialize(data[snakify(fieldName)]);
+
+      if (field instanceof ModelField || field instanceof ListField && field.fieldClass == ModelField) {
+        let values = [];
+
+        if (field instanceof ModelField) {
+          values = [field.value];
+        } else {
+          values = field.value;
+        }
+
+        for (let val of values) {
+          let key = val.id;
+          if (key == undefined) {
+            key = val._temp;
+          }
+
+          let ref = crossReference[key];
+          if (ref == undefined) {
+            crossReference[key] = {};
+            ref = crossReference[key];
+          }
+
+          let modelName = this._modelName();
+          if (ref[modelName] == undefined) {
+            ref[modelName] = [];
+          }
+
+          if (ref[modelName].indexOf(this.id) == -1) {
+            ref[modelName].push(this.id);
+          }
+        }
+      }
     }
 
     modelRefs[modelName][id] = this;
@@ -1223,6 +1256,12 @@ var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web', 'Rule',
 for (let modelName in modelMap) {
   modelRefs[modelName] = {};
 }
+
+var crossReference = {};
+function cascadeDeletes(instanceToDelete) {
+  //
+}
+
 
 var minObjectIdAmount = 100;
 var objectIdStockpile = [];

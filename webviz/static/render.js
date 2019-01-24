@@ -3,7 +3,7 @@
 
 // The following come from models-and-fields.js:
 /* global Node:false, Vertex:false, Link:false, Edge:false, Graph:false, Web:false, Rule:false, Document:false */
-/* global ModelLookup:false */
+/* global ModelLookup:false crossReference:false */
 
 var svg = d3.select('#display');
 
@@ -1195,8 +1195,11 @@ function createVertex(x, y) {
   models['vertices'].add(newVertex);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
-  topWeb['vertices'].push(newVertex.id);
   topWeb.graph['nodes'].push(newNode.id);
+  topWeb['vertices'].push(newVertex.id);
+
+  crossReference[newNode.id]['Graph'] = [topWeb.graph.id];
+  crossReference[newVertex.id]['Web'] = [topWeb.id];
 
   drawSync();
   addToSelected(newVertex);
@@ -1212,6 +1215,9 @@ function createSubweb(vertex) {
   vertex.node.subgraphs.push(newGraph.id);
   vertex.subwebs.push(newWeb.id);
 
+  crossReference[newGraph.id]['Node'] = [vertex.node.id];
+  crossReference[newWeb.id]['Vertex'] = [vertex.id];
+
   drawSync();
   addToSelected(newWeb);
   populateSelectedPane(newWeb);
@@ -1224,8 +1230,11 @@ function makeEdge(start_vertex, end_vertex) {
   models['edges'].add(newEdge);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
-  topWeb['edges'].push(newEdge.id);
   topWeb.graph['links'].push(newLink.id);
+  topWeb['edges'].push(newEdge.id);
+
+  crossReference[newLink.id]['Graph'] = [topWeb.graph.id];
+  crossReference[newEdge.id]['Web'] = [topWeb.id];
 
   drawSync();
   addToSelected(newEdge);
