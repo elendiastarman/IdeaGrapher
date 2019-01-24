@@ -3,7 +3,7 @@
 
 // The following come from models-and-fields.js:
 /* global Node:false, Vertex:false, Link:false, Edge:false, Graph:false, Web:false, Rule:false, Document:false */
-/* global ModelLookup:false crossReference:false */
+/* global models:false crossReference:false */
 
 var svg = d3.select('#display');
 
@@ -91,17 +91,6 @@ var panes = {
 // For things like dragging or panning where it's useful to record the initial mouse position
 var temp = {};
 
-var models = {
-  'nodes': new ModelLookup(Node),
-  'vertices': new ModelLookup(Vertex),
-  'links': new ModelLookup(Link),
-  'edges': new ModelLookup(Edge),
-  'graphs': new ModelLookup(Graph),
-  'webs': new ModelLookup(Web),
-  'rules': new ModelLookup(Rule),
-  'documents': new ModelLookup(Document),
-};
-
 // Explicitly global variables
 var width, height,  // of the whole SVG
     pairs = {},  // makes it easy to look up whether two vertices are connected or not
@@ -116,7 +105,7 @@ function init() {
 
   loadData();
 
-  let rootWeb = models['documents'].index(0)['webs'].value[0];
+  let rootWeb = models['Document'].index(0)['webs'].value[0];
   currentWebs.push({'web': rootWeb, 'parent': null, 'scale': 1});
 
   svg.style('border', '1px solid black');
@@ -142,7 +131,7 @@ function init() {
 
   panes['contents']['viz']['inner'].append('use')
     .attr('xlink:href', '#web' + rootWeb.id);
-  models['documents'].index(0).rules.addInput(panes['contents']['rules']['inner'], true);
+  models['Document'].index(0).rules.addInput(panes['contents']['rules']['inner'], true);
 
   while (enterOrExitSubweb(-1));
   draw();
@@ -251,20 +240,20 @@ function pairKey(vertex1id, vertex2id) {
 function initNodes(data) {
   let nodesData = data['Node'] || [];
   for (let key in nodesData) {
-    models['nodes'].add(new Node(nodesData[key]));
+    models['Node'].add(new Node(nodesData[key]));
   }
 }
 
 function initVertices(data) {
   let verticesData = data['Vertex'] || [];
   for (let key in verticesData) {
-    models['vertices'].add(new Vertex(verticesData[key]));
+    models['Vertex'].add(new Vertex(verticesData[key]));
   }
 
-  models['vertices'].modelIds.forEach(function(v1id) {
-    models['vertices'].modelIds.forEach(function(v2id) {
+  models['Vertex'].modelIds.forEach(function(v1id) {
+    models['Vertex'].modelIds.forEach(function(v2id) {
       if(v1id != v2id) {
-        pairs[pairKey(v1id, v2id)] = {vertex1: models['vertices'][v1id], vertex2: models['vertices'][v2id], edge: null};
+        pairs[pairKey(v1id, v2id)] = {vertex1: models['Vertex'][v1id], vertex2: models['Vertex'][v2id], edge: null};
       }
     });
   });
@@ -273,42 +262,42 @@ function initVertices(data) {
 function initLinks(data) {
   let linksData = data['Link'] || [];
   for (let key in linksData) {
-    models['links'].add(new Link(linksData[key]));
+    models['Link'].add(new Link(linksData[key]));
   }
 }
 
 function initEdges(data) {
   let edgesData = data['Edge'] || [];
   for (let key in edgesData) {
-    models['edges'].add(new Edge(edgesData[key]));
+    models['Edge'].add(new Edge(edgesData[key]));
   }
 }
 
 function initGraphs(data) {
   let graphsData = data['Graph'] || [];
   for (let key in graphsData) {
-    models['graphs'].add(new Graph(graphsData[key]));
+    models['Graph'].add(new Graph(graphsData[key]));
   }
 }
 
 function initWebs(data) {
   let websData = data['Web'] || [];
   for (let key in websData) {
-    models['webs'].add(new Web(websData[key]));
+    models['Web'].add(new Web(websData[key]));
   }
 }
 
 function initRules(data) {
   let rulesData = data['Rule'] || [];
   for (let key in rulesData) {
-    models['rules'].add(new Rule(rulesData[key]));
+    models['Rule'].add(new Rule(rulesData[key]));
   }
 }
 
 function initDocuments(data) {
   let documentsData = data['Document'] || [];
   for (let key in documentsData) {
-    models['documents'].add(new Document(documentsData[key]));
+    models['Document'].add(new Document(documentsData[key]));
   }
 }
 
@@ -427,7 +416,7 @@ function adjustPanes() {
 function drawSync() {
   let websDef = svg.select('#webs');
 
-  let wData = websDef.selectAll('.web').data(models['webs'].modelIds, function(d){ return d; });
+  let wData = websDef.selectAll('.web').data(models['Web'].modelIds, function(d){ return d; });
   let wEnterGroup = wData.enter().append('g')
     .attr('class', 'web')
     .attr('id', function(d){ return 'web' + d; });
@@ -437,7 +426,7 @@ function drawSync() {
 
   let webId, vData, vEnterGroup, eData, eEnterGroup, subwebContainers;
 
-  for (let web of models['webs']) {
+  for (let web of models['Web']) {
     webId = web.id;
 
     vData = websDef.select('[id=\'web' + webId + '\']').select('.vertices').selectAll('.vertex').data(web['vertices'].serialize(), function(d){ return d; });
@@ -496,7 +485,7 @@ function drawSync() {
     eData.exit().remove();
   }
 
-  for (let vertex of models['vertices']) {
+  for (let vertex of models['Vertex']) {
     if (vertex.subwebs.value.length > 0) {
       d3.select('[id=\'' + vertex.id + '\']').select('.subweb').selectAll('use').data(vertex.subwebs.serialize())
         .enter().append('use')
@@ -516,21 +505,21 @@ function draw() {
 
     d3.select('#web' + web.id)
       .attr('transform', function(d){
-        let screen = models['webs'][d]['screen'];
+        let screen = models['Web'][d]['screen'];
         return 'translate(' + screen['x'] * screen['scale'] + ',' + screen['y'] * screen['scale'] + ') scale(' + screen['scale'] + ')';
       });
 
     let vData = d3.select('#web' + web.id).select('.vertices').selectAll('.vertex').data(web['vertices'].serialize(), function(d){ return d; });
     vData
-      .attr('transform', function(d){ return 'translate(' + models['vertices'][d]['screen']['x'] + ',' + models['vertices'][d]['screen']['y'] + ')'; });
+      .attr('transform', function(d){ return 'translate(' + models['Vertex'][d]['screen']['x'] + ',' + models['Vertex'][d]['screen']['y'] + ')'; });
     vData.select('circle.highlight')
-      .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])) + 4 / vScale; });
+      .attr('r', function(d){ return Math.sqrt(parseFloat(models['Vertex'][d]['node']['data']['size'])) + 4 / vScale; });
     vData.select('circle.circle')
-      .attr('r', function(d){ return Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); })
+      .attr('r', function(d){ return Math.sqrt(parseFloat(models['Vertex'][d]['node']['data']['size'])); })
       .attr('stroke-width', (2 / vScale) + 'px')
-      .attr('fill', function(d){ return models['vertices'][d]['screen']['color'] || 'gray'; });
+      .attr('fill', function(d){ return models['Vertex'][d]['screen']['color'] || 'gray'; });
     vData.selectAll('text')
-      .text(function(d){ return models['vertices'][d]['data']['shortname']; })
+      .text(function(d){ return models['Vertex'][d]['data']['shortname']; })
       .attr('font-size', 16 / vScale );
     vData.select('text.outer')
       .style('stroke-width', 4 / vScale);
@@ -538,26 +527,26 @@ function draw() {
       .style('stroke-width', 0.25 / vScale);
 
     vData.select('.subwebContainer').select('circle')
-      .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['vertices'][d]['node']['data']['size'])); });
+      .attr('r', function(d){ return 0.9 * Math.sqrt(parseFloat(models['Vertex'][d]['node']['data']['size'])); });
 
     let eData = d3.select('#web' + web.id).select('.edges').selectAll('.edge').data(web['edges'].serialize(), function(d){ return d; });
     eData.selectAll('line.highlight')
-      .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
-      .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
-      .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
-      .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
-      .attr('stroke-width', function(d){ return ((models['edges'][d]['screen']['thickness'] + 4) / vScale) + 'px'; });
+      .attr('x1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['x']; })
+      .attr('y1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['y']; })
+      .attr('x2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['x']; })
+      .attr('y2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['y']; })
+      .attr('stroke-width', function(d){ return ((models['Edge'][d]['screen']['thickness'] + 4) / vScale) + 'px'; });
     eData.selectAll('line.line')
-      .attr('x1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['x']; })
-      .attr('y1', function(d){ return models['edges'][d]['start_vertices'].value[0]['screen']['y']; })
-      .attr('x2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['x']; })
-      .attr('y2', function(d){ return models['edges'][d]['end_vertices'].value[0]['screen']['y']; })
-      .attr('stroke-width', function(d){ return (models['edges'][d]['screen']['thickness'] / vScale) + 'px'; })
-      .attr('stroke', function(d){ return models['edges'][d]['screen']['color']; });
+      .attr('x1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['x']; })
+      .attr('y1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['y']; })
+      .attr('x2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['x']; })
+      .attr('y2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['y']; })
+      .attr('stroke-width', function(d){ return (models['Edge'][d]['screen']['thickness'] / vScale) + 'px'; })
+      .attr('stroke', function(d){ return models['Edge'][d]['screen']['color']; });
     eData.selectAll('use')
       .attr('transform', function(d){
-        let sv = models['edges'][d]['start_vertices'].value[0],
-            ev = models['edges'][d]['end_vertices'].value[0];
+        let sv = models['Edge'][d]['start_vertices'].value[0],
+            ev = models['Edge'][d]['end_vertices'].value[0];
         let svx = sv['screen']['x'],
             svy = sv['screen']['y'],
             evx = ev['screen']['x'],
@@ -565,10 +554,10 @@ function draw() {
         let newX = svx + (evx - svx) * 0.55,
             newY = svy + (evy - svy) * 0.55;
         let rot = Math.atan2(evy - svy, evx - svx);
-        return 'translate(' + newX + ' ' + newY + ') scale(' + 1 / vScale + ') rotate(' + (rot * 180 / Math.PI - 90) + ') translate(' + (models['edges'][d]['screen']['thickness'] / 2) + ' 0)';
+        return 'translate(' + newX + ' ' + newY + ') scale(' + 1 / vScale + ') rotate(' + (rot * 180 / Math.PI - 90) + ') translate(' + (models['Edge'][d]['screen']['thickness'] / 2) + ' 0)';
       })
-      .style('visibility', function(d){ return models['edges'][d]['kind'].value == 'directed' ? 'inherit' : 'hidden'; })
-      .style('fill', function(d){ return models['edges'][d]['screen']['color']; });
+      .style('visibility', function(d){ return models['Edge'][d]['kind'].value == 'directed' ? 'inherit' : 'hidden'; })
+      .style('fill', function(d){ return models['Edge'][d]['screen']['color']; });
   }
 }
 
@@ -605,7 +594,7 @@ function step() {
   changed = respondToScrollInput() || changed;
   changed = executeContinuousTriggers() || changed;
 
-  for (let rule of models['rules']) {
+  for (let rule of models['Rule']) {
     if (rule.active.value) {
       let runRule = false;
 
@@ -642,7 +631,7 @@ function step() {
 
 function saveDocname() {
   let inputName = $('#docname').val();
-  let doc = models['documents'].index(0);
+  let doc = models['Document'].index(0);
   if (inputName != doc['name'].value) {
     doc['name'].value = inputName;
 
@@ -1191,8 +1180,8 @@ function handleDoubleClick() {
 function createVertex(x, y) {
   let newNode = new Node(Node._defaultData({'data': {'size': 100}}), false);
   let newVertex = new Vertex(Vertex._defaultData({'screen': {'x': x, 'y': y}, 'node': newNode.id, 'data': {'shortname': 'text'}}), false);
-  models['nodes'].add(newNode);
-  models['vertices'].add(newVertex);
+  models['Node'].add(newNode);
+  models['Vertex'].add(newVertex);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
   topWeb.graph['nodes'].push(newNode.id);
@@ -1209,8 +1198,8 @@ function createVertex(x, y) {
 function createSubweb(vertex) {
   let newGraph = new Graph(Graph._defaultData(), false);
   let newWeb = new Web(Web._defaultData({'graph': newGraph.id}), false);
-  models['graphs'].add(newGraph);
-  models['webs'].add(newWeb);
+  models['Graph'].add(newGraph);
+  models['Web'].add(newWeb);
 
   vertex.node.subgraphs.push(newGraph.id);
   vertex.subwebs.push(newWeb.id);
@@ -1226,8 +1215,8 @@ function createSubweb(vertex) {
 function makeEdge(start_vertex, end_vertex) {
   let newLink = new Link(Link._defaultData({'sources': [start_vertex['node'].value.id], 'sinks': [end_vertex['node'].value.id]}), false);
   let newEdge = new Edge(Edge._defaultData({'start_vertices': [start_vertex.id], 'end_vertices': [end_vertex.id], 'link': newLink.id}), false);
-  models['links'].add(newLink);
-  models['edges'].add(newEdge);
+  models['Link'].add(newLink);
+  models['Edge'].add(newEdge);
 
   let topWeb = currentWebs[currentWebs.length - 1]['web'];
   topWeb.graph['links'].push(newLink.id);

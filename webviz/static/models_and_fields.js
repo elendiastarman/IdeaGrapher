@@ -1257,6 +1257,18 @@ for (let modelName in modelMap) {
   modelRefs[modelName] = {};
 }
 
+// For interacting with in render.js; modelRefs should be internal.
+var models = {
+  'Node': new ModelLookup(Node),
+  'Vertex': new ModelLookup(Vertex),
+  'Link': new ModelLookup(Link),
+  'Edge': new ModelLookup(Edge),
+  'Graph': new ModelLookup(Graph),
+  'Web': new ModelLookup(Web),
+  'Rule': new ModelLookup(Rule),
+  'Document': new ModelLookup(Document),
+};
+
 var crossReference = {};
 function cascadeDeletes(instanceToDelete) {
   //
