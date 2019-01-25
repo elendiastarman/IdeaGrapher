@@ -3,7 +3,7 @@
 
 // The following come from models-and-fields.js:
 /* global Node:false, Vertex:false, Link:false, Edge:false, Graph:false, Web:false, Rule:false, Document:false */
-/* global models:false crossReference:false */
+/* global models:false crossReference:false needToSync:true */
 
 var svg = d3.select('#display');
 
@@ -493,6 +493,7 @@ function drawSync() {
     }
   }
 
+  needToSync = false;
   draw();
 }
 
@@ -531,22 +532,22 @@ function draw() {
 
     let eData = d3.select('#web' + web.id).select('.edges').selectAll('.edge').data(web['edges'].serialize(), function(d){ return d; });
     eData.selectAll('line.highlight')
-      .attr('x1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['x']; })
-      .attr('y1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['y']; })
-      .attr('x2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['x']; })
-      .attr('y2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['y']; })
+      .attr('x1', function(d){ return models['Edge'][d]['startVertices'].value[0]['screen']['x']; })
+      .attr('y1', function(d){ return models['Edge'][d]['startVertices'].value[0]['screen']['y']; })
+      .attr('x2', function(d){ return models['Edge'][d]['endVertices'].value[0]['screen']['x']; })
+      .attr('y2', function(d){ return models['Edge'][d]['endVertices'].value[0]['screen']['y']; })
       .attr('stroke-width', function(d){ return ((models['Edge'][d]['screen']['thickness'] + 4) / vScale) + 'px'; });
     eData.selectAll('line.line')
-      .attr('x1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['x']; })
-      .attr('y1', function(d){ return models['Edge'][d]['start_vertices'].value[0]['screen']['y']; })
-      .attr('x2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['x']; })
-      .attr('y2', function(d){ return models['Edge'][d]['end_vertices'].value[0]['screen']['y']; })
+      .attr('x1', function(d){ return models['Edge'][d]['startVertices'].value[0]['screen']['x']; })
+      .attr('y1', function(d){ return models['Edge'][d]['startVertices'].value[0]['screen']['y']; })
+      .attr('x2', function(d){ return models['Edge'][d]['endVertices'].value[0]['screen']['x']; })
+      .attr('y2', function(d){ return models['Edge'][d]['endVertices'].value[0]['screen']['y']; })
       .attr('stroke-width', function(d){ return (models['Edge'][d]['screen']['thickness'] / vScale) + 'px'; })
       .attr('stroke', function(d){ return models['Edge'][d]['screen']['color']; });
     eData.selectAll('use')
       .attr('transform', function(d){
-        let sv = models['Edge'][d]['start_vertices'].value[0],
-            ev = models['Edge'][d]['end_vertices'].value[0];
+        let sv = models['Edge'][d]['startVertices'].value[0],
+            ev = models['Edge'][d]['endVertices'].value[0];
         let svx = sv['screen']['x'],
             svy = sv['screen']['y'],
             evx = ev['screen']['x'],
@@ -589,6 +590,10 @@ function populateSelectedPane(element) {
 }
 
 function step() {
+  if (needToSync) {
+    drawSync();
+  }
+
   let changed = false;
   changed = updateMouseState() || changed;
   changed = respondToScrollInput() || changed;
@@ -1129,10 +1134,10 @@ function identifyTargets(x, y, types) {
         let edge = topWeb['edges'].value[index];
         let x0 = x,
             y0 = y,
-            x1 = edge['start_vertices'].value[0]['screen']['x'],
-            y1 = edge['start_vertices'].value[0]['screen']['y'],
-            x2 = edge['end_vertices'].value[0]['screen']['x'],
-            y2 = edge['end_vertices'].value[0]['screen']['y'];
+            x1 = edge['startVertices'].value[0]['screen']['x'],
+            y1 = edge['startVertices'].value[0]['screen']['y'],
+            x2 = edge['endVertices'].value[0]['screen']['x'],
+            y2 = edge['endVertices'].value[0]['screen']['y'];
 
         let segmentLength = Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
         let distFromVertex1 = Math.abs((x0 - x1) * (x2 - x1) + (y0 - y1) * (y2 - y1)) / segmentLength;
@@ -1188,7 +1193,7 @@ function createVertex(x, y) {
   topWeb['vertices'].push(newVertex.id);
 
   crossReference[newNode.id]['Graph'] = [topWeb.graph.id];
-  crossReference[newVertex.id]['Web'] = [topWeb.id];
+  crossReference[newVertex.id] = {'Web': [topWeb.id]};
 
   drawSync();
   addToSelected(newVertex);
@@ -1205,16 +1210,16 @@ function createSubweb(vertex) {
   vertex.subwebs.push(newWeb.id);
 
   crossReference[newGraph.id]['Node'] = [vertex.node.id];
-  crossReference[newWeb.id]['Vertex'] = [vertex.id];
+  crossReference[newWeb.id] = {'Vertex': [vertex.id]};
 
   drawSync();
   addToSelected(newWeb);
   populateSelectedPane(newWeb);
 }
 
-function makeEdge(start_vertex, end_vertex) {
-  let newLink = new Link(Link._defaultData({'sources': [start_vertex['node'].value.id], 'sinks': [end_vertex['node'].value.id]}), false);
-  let newEdge = new Edge(Edge._defaultData({'start_vertices': [start_vertex.id], 'end_vertices': [end_vertex.id], 'link': newLink.id}), false);
+function makeEdge(startVertex, endVertex) {
+  let newLink = new Link(Link._defaultData({'sources': [startVertex['node'].value.id], 'sinks': [endVertex['node'].value.id]}), false);
+  let newEdge = new Edge(Edge._defaultData({'start_vertices': [startVertex.id], 'end_vertices': [endVertex.id], 'link': newLink.id}), false);
   models['Link'].add(newLink);
   models['Edge'].add(newEdge);
 
@@ -1223,7 +1228,7 @@ function makeEdge(start_vertex, end_vertex) {
   topWeb['edges'].push(newEdge.id);
 
   crossReference[newLink.id]['Graph'] = [topWeb.graph.id];
-  crossReference[newEdge.id]['Web'] = [topWeb.id];
+  crossReference[newEdge.id] = {'Web': [topWeb.id]};
 
   drawSync();
   addToSelected(newEdge);

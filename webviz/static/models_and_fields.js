@@ -189,7 +189,7 @@ class NumberField extends BaseField {
     if (typeof value !== 'number') {
       throw new Error('Value \'' + value + '\' is not a number.');
     } else if (value.length < this.min) {
-      throw new Error('Value \'' + value + '\' is smaller than the minimum of ' + this.min + '.');
+      throw new Error('Value \'' + value + '\' is less than the minimum of ' + this.min + '.');
     } else if (value.length < this.max) {
       throw new Error('Value \'' + value + '\' is greater than the maximum of ' + this.max + '.');
     }
@@ -360,7 +360,7 @@ class ListField extends BaseField {
 
     inputDiv.append('hr');
     for (let index in this.value) {
-      this.addInputElement(inputDiv, this.value[index], editable);
+      this.addInputElement(inputDiv.append('div'), this.value[index], editable);
     }
     inputDiv.append('hr');
 
@@ -762,6 +762,17 @@ class BaseModel {
   _populateContainer(container) {
     // assumes that container is a div within a foreignObject handled by D3
     container.append('p').html(this._modelName() + ': ' + this.id);
+    container.select('p').append('br');
+    container.select('p').append('a')
+      .attr('href', '')
+      .html('Delete')
+      .style('color', 'red')
+      .on('click', function(self){
+        return function(){
+          d3.event.preventDefault();
+          cascadeDeletes(self);
+        };
+      }(this));
 
     let dataFields = this._getDataFields();
     for (let index in dataFields) {
@@ -970,8 +981,8 @@ class Edge extends BaseModel {
         'thickness': new NumberField({'default': 3}),
         'color': new StringField({'default': 'black'}),
       }}),
-      'start_vertices': new ListField(ModelField, ['Vertex', {}], {}),
-      'end_vertices': new ListField(ModelField, ['Vertex', {}], {}),
+      'startVertices': new ListField(ModelField, ['Vertex', {}], {}),
+      'endVertices': new ListField(ModelField, ['Vertex', {}], {}),
       'data': new DictField({}),
     };
   }
@@ -984,8 +995,8 @@ class Edge extends BaseModel {
         ['thickness', true],
         ['color', true],
       ]],
-      ['start_vertices', false],
-      ['end_vertices', false],
+      ['startVertices', false],
+      ['endVertices', false],
       ['data', true],
     ];
   }
@@ -1216,7 +1227,6 @@ class ModelLookup {
 
     this.modelIds.splice(index, 1);
     delete this.models[modelId];
-    delete this[modelId];
 
     return 1;
   }
@@ -1241,18 +1251,18 @@ class ModelLookup {
   }
 }
 
+var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web', 'Rule', 'Document'];
 var modelRefs = {};
 var modelMap = {
-  'Document': Document,
-  'Rule': Rule,
-  'Web': Web,
-  'Edge': Edge,
-  'Vertex': Vertex,
-  'Graph': Graph,
-  'Link': Link,
   'Node': Node,
+  'Vertex': Vertex,
+  'Link': Link,
+  'Edge': Edge,
+  'Graph': Graph,
+  'Web': Web,
+  'Rule': Rule,
+  'Document': Document,
 };
-var dependencyOrder = ['Node', 'Vertex', 'Link', 'Edge', 'Graph', 'Web', 'Rule', 'Document'];
 for (let modelName in modelMap) {
   modelRefs[modelName] = {};
 }
@@ -1268,10 +1278,189 @@ var models = {
   'Rule': new ModelLookup(Rule),
   'Document': new ModelLookup(Document),
 };
-
 var crossReference = {};
+var needToSync = false;
+
+
+function containedIn(smaller, larger) {
+  if (smaller.length > larger.length) {
+    return false;
+  }
+
+  for (let item of smaller) {
+    if (larger.indexOf(item) == -1) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function cascadeDeletes(instanceToDelete) {
-  //
+  let modelsToDelete = [instanceToDelete];
+  let idsToDelete = [instanceToDelete.id];
+  let modelsToCascade = [instanceToDelete];
+
+  let addToCascade = function(candidate) {
+    if (candidate != undefined && idsToDelete.indexOf(candidate.id) == -1) {
+      modelsToDelete.push(candidate);
+      idsToDelete.push(candidate.id);
+      modelsToCascade.push(candidate);
+    }
+  };
+
+  let candidate, container, index;
+  let limit = 100;
+
+  while (modelsToCascade.length > 0 && limit > 0) {
+    limit -= 1;
+    let nextModel = modelsToCascade.splice(0, 1)[0];
+    console.log('nextModel:', nextModel);
+
+    // starting with Vertex (instead of Node) because it ended up being a good example of how to do this
+    if (nextModel instanceof Vertex) {
+
+      // Remove from referring things
+      for (let webId of crossReference[nextModel.id]['Web']) {
+        container = models['Web'][webId];
+        if (container == undefined) {
+          continue;
+        }
+
+        index = container.vertices.serialize().indexOf(nextModel.id);
+        if (index > -1) {
+          container.vertices._value.splice(index, 1);
+        }
+      }
+
+      // Refers to a single thing
+      candidate = nextModel.node.value;
+      if (containedIn(crossReference[candidate.id]['Vertex'], idsToDelete)) {
+        addToCascade(candidate);
+      }
+
+      // Refers to a list of things
+      for (let subwebId of nextModel.subwebs.serialize()) {
+        candidate = models['Web'][subwebId];
+        if (candidate == undefined) {
+          continue;
+        }
+
+        if (containedIn(crossReference[candidate.id]['Vertex'], idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+      // Is referred to by things
+      for (let edgeId of crossReference[nextModel.id]['Edge']) {
+        candidate = models['Edge'][edgeId];
+        if (candidate == undefined) {
+          continue;
+        }
+
+        let startVertices = candidate.startVertices.serialize();
+        index = startVertices.indexOf(nextModel.id);
+        if (index > -1) {
+          candidate.startVertices._value.splice(index, 1);
+        }
+
+        let endVertices = candidate.endVertices.serialize();
+        index = endVertices.indexOf(nextModel.id);
+        if (index > -1) {
+          candidate.endVertices._value.splice(index, 1);
+        }
+
+        if (containedIn(startVertices, idsToDelete) || containedIn(endVertices, idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+    } else if (nextModel instanceof Node) {
+
+      for (let graphId of crossReference[nextModel.id]['Graph']) {
+        container = models['Graph'][graphId];
+        if (container == undefined) {
+          continue;
+        }
+
+        index = container.nodes.serialize().indexOf(nextModel.id);
+        if (index > -1) {
+          container.nodes._value.splice(index, 1);
+        }
+      }
+
+      for (let subgraphId of nextModel.subgraphs.serialize()) {
+        candidate = models['Graph'][subgraphId];
+        if (candidate == undefined) {
+          continue;
+        }
+
+        if (containedIn(crossReference[candidate.id]['Node'], idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+      for (let vertexId of crossReference[nextModel.id]['Vertex']) {
+        candidate = models['Vertex'][vertexId];
+        addToCascade(candidate);
+      }
+
+      for (let linkId of crossReference[nextModel.id]['Link']) {
+        candidate = models['Link'][linkId];
+        if (candidate == undefined) {
+          continue;
+        }
+
+        if (containedIn(candidate.sources.serialize(), idsToDelete) || containedIn(candidate.sinks.serialize(), idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+    } else if (nextModel instanceof Link) {
+
+      for (let graphId of crossReference[nextModel.id]['Graph']) {
+        container = models['Graph'][graphId];
+        if (container == undefined) {
+          continue;
+        }
+
+        index = container.links.serialize().indexOf(nextModel.id);
+        if (index > -1) {
+          container.links._value.splice(index, 1);
+        }
+      }
+
+      for (let edgeId of crossReference[nextModel.id]['Edge']) {
+        candidate = models['Edge'][edgeId];
+        addToCascade(candidate);
+      }
+
+    } else if (nextModel instanceof Edge) {
+
+      for (let webId of crossReference[nextModel.id]['Web']) {
+        container = models['Web'][webId];
+        if (container == undefined) {
+          continue;
+        }
+
+        index = container.edges.serialize().indexOf(nextModel.id);
+        if (index > -1) {
+          container.edges._value.splice(index, 1);
+        }
+      }
+
+      candidate = nextModel.link.value;
+      if (containedIn(crossReference[candidate.id]['Edge'], idsToDelete)) {
+        addToCascade(candidate);
+      }
+    }
+
+    models[nextModel._modelName()].remove(nextModel.id);
+    delete crossReference[nextModel.id];
+  }
+
+  console.log('modelsToDelete:', modelsToDelete);
+  needToSync = true;
 }
 
 
@@ -1446,4 +1635,4 @@ function saveDirtyModels() {
 var saveTimer;
 var saveDelay = 1000;
 saveDirtyModels();
-saveTimer = setInterval(saveDirtyModels, saveDelay);
+// saveTimer = setInterval(saveDirtyModels, saveDelay);
