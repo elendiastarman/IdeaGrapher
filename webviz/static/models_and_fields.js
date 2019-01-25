@@ -314,6 +314,11 @@ class ListField extends BaseField {
     return this._value.pop();
   }
 
+  splice(index, maxNum) {
+    this._dirty = true;
+    return this._value.splice(index, maxNum);
+  }
+
   addInputElement(container, element, editable) {
     if (this.fieldClass == ModelField) {
       element._populateContainer(container);
@@ -723,7 +728,7 @@ class BaseModel {
         for (let val of values) {
           let key = val.id;
           if (key == undefined) {
-            key = val._temp;
+            key = val;
           }
 
           let ref = crossReference[key];
@@ -1048,6 +1053,7 @@ class Vertex extends BaseModel {
         ['size', true],
         ['color', true],
       ]],
+      ['subwebs', false],
       ['data', true],
     ];
   }
@@ -1160,6 +1166,7 @@ class Node extends BaseModel {
 
   _getDataFields() {
     return [
+      ['subgraphs', false],
       ['data', true],
     ];
   }
@@ -1329,7 +1336,7 @@ function cascadeDeletes(instanceToDelete) {
 
         index = container.vertices.serialize().indexOf(nextModel.id);
         if (index > -1) {
-          container.vertices._value.splice(index, 1);
+          container.vertices.splice(index, 1);
         }
       }
 
@@ -1361,13 +1368,13 @@ function cascadeDeletes(instanceToDelete) {
         let startVertices = candidate.startVertices.serialize();
         index = startVertices.indexOf(nextModel.id);
         if (index > -1) {
-          candidate.startVertices._value.splice(index, 1);
+          candidate.startVertices.splice(index, 1);
         }
 
         let endVertices = candidate.endVertices.serialize();
         index = endVertices.indexOf(nextModel.id);
         if (index > -1) {
-          candidate.endVertices._value.splice(index, 1);
+          candidate.endVertices.splice(index, 1);
         }
 
         if (containedIn(startVertices, idsToDelete) || containedIn(endVertices, idsToDelete)) {
@@ -1385,7 +1392,7 @@ function cascadeDeletes(instanceToDelete) {
 
         index = container.nodes.serialize().indexOf(nextModel.id);
         if (index > -1) {
-          container.nodes._value.splice(index, 1);
+          container.nodes.splice(index, 1);
         }
       }
 
@@ -1426,7 +1433,7 @@ function cascadeDeletes(instanceToDelete) {
 
         index = container.links.serialize().indexOf(nextModel.id);
         if (index > -1) {
-          container.links._value.splice(index, 1);
+          container.links.splice(index, 1);
         }
       }
 
@@ -1445,7 +1452,7 @@ function cascadeDeletes(instanceToDelete) {
 
         index = container.edges.serialize().indexOf(nextModel.id);
         if (index > -1) {
-          container.edges._value.splice(index, 1);
+          container.edges.splice(index, 1);
         }
       }
 
@@ -1453,6 +1460,107 @@ function cascadeDeletes(instanceToDelete) {
       if (containedIn(crossReference[candidate.id]['Edge'], idsToDelete)) {
         addToCascade(candidate);
       }
+
+    } else if (nextModel instanceof Graph) {
+
+      let doc = models['Document'].index(0);
+      let dontDelete = false;
+      for (let webId of doc.webs.serialize()) {
+        container = models['Web'][webId];
+        if (container == undefined) {
+          continue;
+        }
+
+        if (container.graph.value.id == nextModel.id) {
+          dontDelete = true;
+          break;
+        }
+      }
+
+      if (dontDelete) {
+        idsToDelete.splice(idsToDelete.indexOf(nextModel.id), 1);
+        continue;
+      }
+
+      for (let nodeId of crossReference[nextModel.id]['Node']) {
+        container = models['Node'][nodeId];
+        if (container == undefined) {
+          continue;
+        }
+
+        index = container.subgraphs.serialize().indexOf(nextModel.id);
+        if (index > -1) {
+          container.subgraphs.splice(index, 1);
+        }
+      }
+
+      for (let webId of crossReference[nextModel.id]['Web']) {
+        candidate = models['Web'][webId];
+        addToCascade(candidate);
+      }
+
+      for (let nodeId of nextModel.nodes.serialize()) {
+        candidate = models['Node'][nodeId];
+        if (candidate != undefined && containedIn(crossReference[candidate.id]['Graph'], idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+      for (let linkId of nextModel.links.serialize()) {
+        candidate = models['Link'][linkId];
+        if (candidate != undefined && containedIn(crossReference[candidate.id]['Graph'], idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+    } else if (nextModel instanceof Web) {
+
+      let doc = models['Document'].index(0);
+      let dontDelete = false;
+      if (doc.webs.serialize().indexOf(nextModel.id) > -1) {
+        dontDelete = true;
+      }
+
+      if (dontDelete) {
+        idsToDelete.splice(idsToDelete.indexOf(nextModel.id), 1);
+        continue;
+      }
+
+      candidate = nextModel.graph.value;
+      if (containedIn(crossReference[candidate.id]['Web'], idsToDelete)) {
+        addToCascade(candidate);
+      }
+
+      for (let vertexId of crossReference[nextModel.id]['Vertex']) {
+        container = models['Vertex'][vertexId];
+        if (container == undefined) {
+          continue;
+        }
+
+        index = container.subwebs.serialize().indexOf(nextModel.id);
+        if (index > -1) {
+          container.subwebs.splice(index, 1);
+        }
+      }
+
+      for (let vertexId of nextModel.vertices.serialize()) {
+        candidate = models['Vertex'][vertexId];
+        if (candidate != undefined && containedIn(crossReference[candidate.id]['Web'], idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+      for (let edgeId of nextModel.edges.serialize()) {
+        candidate = models['Edge'][edgeId];
+        if (candidate != undefined && containedIn(crossReference[candidate.id]['Web'], idsToDelete)) {
+          addToCascade(candidate);
+        }
+      }
+
+    } else if (nextModel instanceof Rule) {
+      let doc = models['Document'].index(0);
+      index = doc.rules.serialize().indexOf(nextModel.id);
+      doc.rules.splice(index, 1);
     }
 
     models[nextModel._modelName()].remove(nextModel.id);
