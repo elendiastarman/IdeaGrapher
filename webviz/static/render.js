@@ -127,11 +127,11 @@ function init() {
 
   resizeSVG();
   populateSelectedPane();
+  populateRulesPane();
   drawSync();
 
   panes['contents']['viz']['inner'].append('use')
     .attr('xlink:href', '#web' + rootWeb.id);
-  models['Document'].index(0).rules.addInput(panes['contents']['rules']['inner'], true);
 
   while (enterOrExitSubweb(-1));
   draw();
@@ -589,8 +589,17 @@ function populateSelectedPane(element) {
   }
 }
 
+function populateRulesPane() {
+  panes['contents']['rules']['inner'].selectAll('*').remove();
+  models['Document'].index(0).rules.addInput(panes['contents']['rules']['inner'], true);
+  panes['contents']['rules']['inner'].select('a').dispatch('click');
+}
+
 function step() {
   if (needToSync) {
+    selected = [];
+    populateSelectedPane();
+    populateRulesPane();
     drawSync();
   }
 
