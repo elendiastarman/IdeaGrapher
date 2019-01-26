@@ -212,14 +212,7 @@ def update_model(data, id_map):
 def delete_model(data, id_map):
   model = MODEL_MAP[data['$model']]
   instance = model.get_by_id(data['$id'])
-  print(instance.json())
-
-  # for item in data['$update']:
-  #   if item['$action'] == 'overwrite':
-  #     instance.__setattr__(item['$key'], item['$value'])
-
-  # import ipdb; ipdb.set_trace()
-  # instance.save()
+  instance.delete()
 
 
 @app.route('/updatedata', methods=['PUT'])

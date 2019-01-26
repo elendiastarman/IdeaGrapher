@@ -156,26 +156,27 @@ class MongoModel(object, metaclass=MongoModelMeta):
 
     if isinstance(self._id, ObjectId):
       changed = self.changed()
-      # print('changed')
-      # import pprint; pprint.pprint(changed)
-      # print()
       if changed:
         result = self.CLIENT[self.DATABASE][self.COLLECTION].update_one({'_id': self._id}, {'$set': changed})
+
     else:
       serialized = self.serialize(include='all')
 
       if isinstance(self._id, str):
-        # print('id is str')
         serialized['_id'] = ObjectId(self._id)
-      # print('serialized')
-      # import pprint; pprint.pprint(serialized)
-      # print()
 
       result = self.CLIENT[self.DATABASE][self.COLLECTION].insert_one(serialized)
       self._id = result.inserted_id
       self.get_or_make_ref(self.__class__, self._id, obj=self)
 
     self.mark_clean()
+
+  def delete(self):
+    if not self.CLIENT:
+      raise ValueError("Must be connected to Mongo.")
+
+    result = self.CLIENT[self.DATABASE][self.COLLECTION].delete_one({'_id': self._id})
+    return result
 
   def validate(self):
     errors = {}

@@ -1317,12 +1317,9 @@ function cascadeDeletes(instanceToDelete) {
   };
 
   let candidate, container, index;
-  let limit = 100;
 
-  while (modelsToCascade.length > 0 && limit > 0) {
-    limit -= 1;
+  while (modelsToCascade.length > 0) {
     let nextModel = modelsToCascade.splice(0, 1)[0];
-    console.log('nextModel:', nextModel);
 
     // starting with Vertex (instead of Node) because it ended up being a good example of how to do this
     if (nextModel instanceof Vertex) {
@@ -1359,7 +1356,7 @@ function cascadeDeletes(instanceToDelete) {
       }
 
       // Is referred to by things
-      for (let edgeId of crossReference[nextModel.id]['Edge']) {
+      for (let edgeId of crossReference[nextModel.id]['Edge'] || []) {
         candidate = models['Edge'][edgeId];
         if (candidate == undefined) {
           continue;
@@ -1412,7 +1409,7 @@ function cascadeDeletes(instanceToDelete) {
         addToCascade(candidate);
       }
 
-      for (let linkId of crossReference[nextModel.id]['Link']) {
+      for (let linkId of crossReference[nextModel.id]['Link'] || []) {
         candidate = models['Link'][linkId];
         if (candidate == undefined) {
           continue;
@@ -1567,7 +1564,10 @@ function cascadeDeletes(instanceToDelete) {
     delete crossReference[nextModel.id];
   }
 
-  console.log('modelsToDelete:', modelsToDelete);
+  for (let model of modelsToDelete) {
+    addDirtyModel(model, 'delete');
+  }
+
   needToSync = true;
 }
 
@@ -1617,7 +1617,7 @@ function saveDirtyModels() {
         let datum = {
           '$action': 'overwrite',
           '$type': field._getType(),
-          '$key': name,
+          '$key': snakify(name),
         };
 
         if (datum['$type'] == 'model') {
@@ -1743,4 +1743,4 @@ function saveDirtyModels() {
 var saveTimer;
 var saveDelay = 1000;
 saveDirtyModels();
-// saveTimer = setInterval(saveDirtyModels, saveDelay);
+saveTimer = setInterval(saveDirtyModels, saveDelay);
