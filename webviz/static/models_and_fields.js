@@ -373,16 +373,16 @@ class ListField extends BaseField {
       return;
     }
 
-    let tempFunc = function(box, list, canEdit){ return function(){
+    let tempFunc = function(box, self, canEdit){ return function(){
       d3.event.preventDefault();
-      if (list.fieldClass == ModelField) {
-        let model = modelMap[list.fieldArgs[0]];
+      if (self.fieldClass == ModelField) {
+        let model = modelMap[self.fieldArgs[0]];
         let newModel = new model(model._defaultData(), false);
-        list.push(newModel);
+        self.push(newModel);
       } else {
-        list.push({});
+        self.push({});
       }
-      this.addInputElement(box, list.value[list.value.length - 1], canEdit);
+      self.addInputElement(box, self.value[self.value.length - 1], canEdit);
     }; };
     div.append('br');
     div.append('a')
@@ -1645,13 +1645,6 @@ function saveDirtyModels() {
         '$id': model.id,
         '$create': createData,
       });
-
-    } else if (action == 'delete') {
-      modelCommands.push({
-        '$model': model._modelName(),
-        '$id': model.id,
-        '$delete': true,
-      });
     }
   }
 
@@ -1702,6 +1695,18 @@ function saveDirtyModels() {
           '$update': updateData,
         });
       }
+    }
+  }
+
+  for (let index in dirtyModelIds) {
+    let [model, action] = dirtyModels[index];
+
+    if (action == 'delete') {
+      modelCommands.push({
+        '$model': model._modelName(),
+        '$id': model.id,
+        '$delete': true,
+      });
     }
   }
 
