@@ -6,6 +6,7 @@
 {% endblock %}
 
 {% block content %}
+    <h2 style="margin: 1px 5px 1px 5px"><span style="color: red">WARNING:</span> Data integrity is not guaranteed at this moment.</h2>
     <input id="docname" type="text" placeholder="Untitled" value="{{ doc.name }}"/><br/>
 
     <svg id="display"></svg>
@@ -15,6 +16,28 @@
     <div id="data" hidden>
     	<p>{{doc.json()}}</p>
 	</div>
+
+    <h2>Things you can do</h2>
+    <ul>
+        <li>Change the title of the document.</li>
+        <li>Click-drag on empty space to pan, scroll wheel to zoom.</li>
+        <li>Click-drag on a vertex to move it.</li>
+        <li>Click on a vertex or edge to highlight it and see its data in the "Selected" pane in the upper right.</li>
+        <li>Click on empty space to see the current web's data in the "Selected" pane.</li>
+        <li>Double-click on empty space to create a new vertex.</li>
+        <li>Right-click on a vertex, then click on another vertex to make an edge or on empty space to cancel. Order matters!</li>
+        <li>Double-click on a vertex to zoom into its subweb, creating one if it doesn't already exist. Zooming in far enough on one vertex will show its subweb.</li>
+        <li>Rules can be created and applied based on a few different triggers.</li>
+        <li>Vertices, edges, subwebs, and rules can be deleted. <strong>Be careful: this is not guaranteed to work!</strong></li>
+    </ul>
+
+    <h3>Notes:</h3>
+    <ul>
+        <li>The size of a vertex is currently set to the square root of the "size" field in its node's data field.</li>
+        <li>The kind of an edge can be connected (a solid line), directed (a solid line with a triangle pointing at the end), or related (a dashed line). The third doesn't work yet.</li>
+    </ul>
+
+    <h2>Raw data</h2>
     <pre>{{pretty_json}}</pre>
 {% endblock %}
 
