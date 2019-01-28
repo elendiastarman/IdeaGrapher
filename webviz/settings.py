@@ -12,3 +12,5 @@ DEBUG = True
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'US/Eastern'
+
+MONGO_DATABASE = 'ideagrapher'
