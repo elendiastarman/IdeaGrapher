@@ -1,5 +1,5 @@
 from flask import request, session, render_template, redirect, abort, url_for, jsonify
-from graphstore.models import Graph, Link, Node
+from graphstore.models import MongoModel, Graph, Link, Node
 from bson import ObjectId
 
 from . import app
@@ -16,6 +16,21 @@ MODEL_MAP = {
   'Web': Web, 'Edge': Edge, 'Vertex': Vertex,
   'Rule': Rule, 'Prop': Prop,
 }
+
+if app.config.get('MONGO_DATABASE'):
+  mongo_args = dict(
+    database=app.config.get('MONGO_DATABASE', 'ideagrapher_test'),
+    uri=app.config.get('MONGO_URI', 'localhost'),
+    port=app.config.get('MONGO_PORT', 27017),
+  )
+
+  if app.config.get('MONGO_USERNAME'):
+    mongo_args.update(dict(
+      username=app.config.get('MONGO_USERNAME', None),
+      password=app.config.get('MONGO_PASSWORD', None),
+    ))
+
+  MongoModel.connect_to_database(**mongo_args)
 
 
 # Create your views here.
