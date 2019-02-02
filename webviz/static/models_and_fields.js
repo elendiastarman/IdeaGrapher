@@ -1606,7 +1606,6 @@ function restockObjectIds(num) {
 function markEverythingDirty() {
   for (let key in models) {
     for (let model of models[key]) {
-      console.log(model);
       for (let fieldName in model._fields) {
         model._fields[fieldName].markDirty();
       }

@@ -684,7 +684,6 @@ var mouseState = {
 };
 
 function handleMouseDown() {
-  console.log('Mouse Down');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -697,7 +696,6 @@ function handleMouseDown() {
 }
 
 function handleMouseUp() {
-  console.log('Mouse Up');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -710,7 +708,6 @@ function handleMouseUp() {
 }
 
 function handleMouseMove() {
-  console.log('Mouse Move');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -721,7 +718,6 @@ function handleMouseMove() {
 }
 
 function handleMouseScroll() {
-  console.log('Mouse Scroll');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -919,9 +915,6 @@ function enterOrExitSubweb(scrollDirection) {
   let frameWidth = frame['dimensions']['width'],
       frameHeight = frame['dimensions']['height'];
 
-  console.log('topWeb:', topWeb);
-  console.log('frame:', frame);
-
   if (scrollDirection < 0) {
     // zooming in; can enter subweb
     let chosenVertex = null;
@@ -947,9 +940,7 @@ function enterOrExitSubweb(scrollDirection) {
       return false;
     }
 
-    // console.log('chosenVertex:', chosenVertex);
     d3.select('[id=\'' + chosenVertex.id + '\']').select('.subwebContainer').style('visibility', 'visible');
-    // console.log('subwebs:', chosenVertex.subwebs.value);
     currentWebs.push({'web': chosenVertex.subwebs.value[0], 'parent': chosenVertex, 'scale': 1});
 
     return true;
@@ -961,7 +952,6 @@ function enterOrExitSubweb(scrollDirection) {
     }
 
     if (rootWeb['screen']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < Math.min(frameWidth, frameHeight)) {
-      console.log('exiting subweb');
       d3.select('[id=\'' + topWeb['parent'].id + '\']').select('.subwebContainer').style('visibility', 'hidden');
       currentWebs.pop();
     }
@@ -1110,7 +1100,6 @@ function normalizeMousePosition(event) {
     for (let index in currentWebs) {
       let parent = currentWebs[index]['parent'];
       if (parent) {
-        // console.log(currentWebs[index]['parent']);
         x -= parent['screen']['x'];
         y -= parent['screen']['y'];
       }
@@ -1213,7 +1202,6 @@ function identifyTargets(x, y, types, callback) {
     clearInterval(data['timer']);
     temp['identifyTargets'] = null;
     targets.sort(function(a, b){ return a[1] - b[1]; });
-    // console.log('callback:', callback);
     return callback(targets);
   }
 
@@ -1244,8 +1232,6 @@ function handleDoubleClick() {
   };
 
   let callback = function(targets){
-    console.log('???');
-    console.log(targets);
     if (targets.length <= 1) {
       createVertex(x, y);
     } else {
@@ -1365,7 +1351,6 @@ function zoomToVertex(vertex) {
 
 function selectClosestElement() {
   let [pane, x, y] = normalizeMousePosition(mouseEvents[0][0][0]);
-  console.log('mouse:', x, y);
   if (pane != 'viz') {
     return;
   }
@@ -1378,14 +1363,13 @@ function selectClosestElement() {
   };
 
   let callback = function(targets){
-    console.log('?');
     if (targets.length <= 1) {
       populateSelectedPane();
       addToSelected(null);
       return;
     }
 
-    console.log(targets);
+    // console.log(targets);
 
     if (temp['makingEdge'] != undefined) {
       let end = null;
@@ -1452,7 +1436,6 @@ function multiClick() {
   if (mouseState['clicks'] == 1) {
     selectClosestElement();
   } else if (mouseState['clicks'] == 2) {
-    console.log('???');
     handleDoubleClick();
   }
 }

@@ -27,7 +27,7 @@ def home_view(**kwargs):
 
   context['docs'] = []
   if account:
-    context['docs'] = Document.find({'owner': account.genid})
+    context['docs'] = Document.find({'owner': account.genid}, ignore_not_found=True)
 
   return render_template('home.html', **context)
 
