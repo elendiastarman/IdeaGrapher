@@ -5,6 +5,8 @@ if (typeof Proxy == 'undefined') {
     throw new Error('This browser doesn\'t support Proxy.');
 }
 
+var needToSave = false; // avoids the need to frequently check to see if any models are dirty
+
 class BaseField {
   constructor(params) {
     this.default = params.default === undefined ? null : params.default;
@@ -40,7 +42,7 @@ class BaseField {
     }
     this.validate(newValue);
     this._value = newValue;
-    this._dirty = true;
+    this.markDirty();
   }
 
   isDirty() {
@@ -49,6 +51,11 @@ class BaseField {
     } else {
       return [false, null];
     }
+  }
+
+  markDirty() {
+    this._dirty = true;
+    needToSave = true;
   }
 
   markClean() {
@@ -292,7 +299,7 @@ class ListField extends BaseField {
 
     this.validate(newValue);
     this._value = newValue;
-    this._dirty = true;
+    this.markDirty();
   }
 
   push(...values) {
@@ -305,17 +312,17 @@ class ListField extends BaseField {
       }
     }
 
-    this._dirty = true;
+    this.markDirty();
     return this._value.length;
   }
 
   pop() {
-    this._dirty = true;
+    this.markDirty();
     return this._value.pop();
   }
 
   splice(index, maxNum) {
-    this._dirty = true;
+    this.markDirty();
     return this._value.splice(index, maxNum);
   }
 
@@ -490,7 +497,7 @@ class ModelField extends BaseField {
 
   set value(newValue) {
     this.validate(newValue);
-    this._dirty = true;
+    this.markDirty();
     this._value = newValue;
   }
 
@@ -561,13 +568,13 @@ class DictField extends BaseField {
       set(target, name, value, receiver) {
         if (Reflect.has(target, name)) {
           if (name == '_value') {
-            target._dirty = true;
+            target.markDirty();
           }
           return Reflect.set(target, name, value, receiver);
         }
 
         target._value[name] = value;
-        target._dirty = true;
+        target.markDirty();
         return target._value[name];
       }
     });
@@ -1597,11 +1604,16 @@ function addDirtyModel(model, action) {
 
   dirtyModels.push([model, action]);
   dirtyModelIds.push(model.id);
+  needToSave = true;
 }
 
 function saveDirtyModels() {
   if (objectIdStockpile.length < minObjectIdAmount) {
     restockObjectIds(2 * (minObjectIdAmount - objectIdStockpile.length));
+  }
+
+  if (!needToSave) {
+    return;
   }
 
   let modelCommands = [];
@@ -1746,6 +1758,6 @@ function saveDirtyModels() {
 }
 
 var saveTimer;
-var saveDelay = 1000;
+var saveDelay = 5000;
 saveDirtyModels();
 saveTimer = setInterval(saveDirtyModels, saveDelay);
