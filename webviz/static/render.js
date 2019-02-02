@@ -652,7 +652,7 @@ function saveDocname() {
     $.ajax('/updatedata', {
       method: 'PUT',
       data: {'data': JSON.stringify([{
-        '$model': 'document',
+        '$model': 'Document',
         '$id': doc.id,
         '$update': [{
           '$action': 'overwrite',
@@ -684,6 +684,7 @@ var mouseState = {
 };
 
 function handleMouseDown() {
+  console.log('Mouse Down');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -696,6 +697,7 @@ function handleMouseDown() {
 }
 
 function handleMouseUp() {
+  console.log('Mouse Up');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -708,6 +710,7 @@ function handleMouseUp() {
 }
 
 function handleMouseMove() {
+  console.log('Mouse Move');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -718,6 +721,7 @@ function handleMouseMove() {
 }
 
 function handleMouseScroll() {
+  console.log('Mouse Scroll');
   if (whichPane(d3.event)[0] == 'viz') {
     d3.event.preventDefault();
   }
@@ -1013,15 +1017,17 @@ function drag() {
     return;
   }
 
-  let vert_max_dist = function(vert){ return Math.sqrt(vert['node']['data']['size']); };
+  let vertMaxDist = function(vert){ return Math.sqrt(vert['node']['data']['size']); };
 
-  let targets = identifyTargets(x, y, [['vertices', vert_max_dist]]);
+  let callback = function(targets){
+    if (targets[0][0] == null) {
+      pan();
+    } else if (targets[0][0] instanceof Vertex) {
+      dragVertex(targets[0][0]);
+    }
+  };
 
-  if (targets[0][0] == null) {
-    pan();
-  } else if (targets[0][0] instanceof Vertex) {
-    dragVertex(targets[0][0]);
-  }
+  let targets = identifyTargets(x, y, [['vertices', vertMaxDist]], callback);
 }
 
 function dragEnd() {
@@ -1118,54 +1124,113 @@ function normalizeMousePosition(event) {
   return [pane, x, y];
 }
 
-function identifyTargets(x, y, types) {
-  let targets = [[null, Infinity]];
-  types = types || [];
-  let topWeb = currentWebs[currentWebs.length - 1]['web'];
+function identifyTargets(x, y, types, callback) {
+  let data = temp['identifyTargets'];
 
-  for (let index in types) {
-    let [type, max_dist] = types[index];
-    max_dist = max_dist || function(){ return Infinity; };
-
-    if (type == 'vertices') {
-      for (let index in topWeb['vertices'].value) {
-        let vertex = topWeb['vertices'].value[index];
-        let vx = vertex['screen']['x'];
-        let vy = vertex['screen']['y'];
-        let dist = Math.sqrt((vx - x)**2 + (vy - y)**2);
-
-        if (dist < max_dist(vertex)) {
-          targets.push([vertex, dist]);
-        }
-      }
-    } else if (type == 'edges') {
-      for (let index in topWeb['edges'].value) {
-        let edge = topWeb['edges'].value[index];
-        let x0 = x,
-            y0 = y,
-            x1 = edge['startVertices'].value[0]['screen']['x'],
-            y1 = edge['startVertices'].value[0]['screen']['y'],
-            x2 = edge['endVertices'].value[0]['screen']['x'],
-            y2 = edge['endVertices'].value[0]['screen']['y'];
-
-        let segmentLength = Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
-        let distFromVertex1 = Math.abs((x0 - x1) * (x2 - x1) + (y0 - y1) * (y2 - y1)) / segmentLength;
-        let distFromVertex2 = Math.abs((x0 - x2) * (x1 - x2) + (y0 - y2) * (y1 - y2)) / segmentLength;
-        // Eq. (14) here: http://mathworld.wolfram.com/Point-LineDistance2-Dimensional.html
-        let perpendicularDist = Math.abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1)) / segmentLength;
-
-        // Slight misnomer
-        let totalDist = perpendicularDist + (distFromVertex1 + distFromVertex2 - segmentLength);
-
-        if (totalDist < max_dist(edge)) {
-          targets.push([edge, totalDist]);
-        }
+  if (data == null) {
+    data = {
+      'x': x,
+      'y': y,
+      'types': types,
+      'typeIndex': 0,
+      'modelIndex': 0,
+      'currentType': types[0][0],
+      'currentMaxDist': types[0][1],
+      'currentValues': null,
+      'callback': callback,
+      'targets': [[null, Infinity]],
+      'topWeb': currentWebs[currentWebs.length - 1]['web'],
+    };
+    temp['identifyTargets'] = data;
+    temp['identifyTargets']['timer'] = setInterval(identifyTargets, 0);
+  } else {
+    if (x != undefined) {
+      if ((data['x'] - x) ** 2 + (data['y'] - y) ** 2 < 100) {
+        data['callback'] = callback;
+      } else {
+        temp['identifyTargets'] = null;
+        identifyTargets(x, y, types, callback);
       }
     }
   }
 
-  targets.sort(function(a, b){ return a[1] - b[1]; });
-  return targets;
+  let targets = data['targets'];
+  let topWeb = data['topWeb'];
+
+  let currentType = data['currentType'];
+  let currentMaxDist = data['currentMaxDist'];
+  let currentValues = data['currentValues'];
+  let modelIndex = data['modelIndex'];
+
+  if (currentType == 'vertices') {
+    if (currentValues == null) {
+      currentValues = topWeb['vertices'].value;
+      data['currentValues'] = currentValues;
+    }
+
+    if (modelIndex < currentValues.length) {
+      let vertex = currentValues[modelIndex];
+      let vx = vertex['screen']['x'];
+      let vy = vertex['screen']['y'];
+      let dist = Math.sqrt((vx - data['x'])**2 + (vy - data['y'])**2);
+
+      if (dist < currentMaxDist(vertex)) {
+        targets.push([vertex, dist]);
+      }
+    }
+
+  } else if (currentType == 'edges') {
+    if (currentValues == null) {
+      currentValues = topWeb['edges'].value;
+      data['currentValues'] = currentValues;
+    }
+
+    if (modelIndex < currentValues.length) {
+      let edge = topWeb['edges'].value[modelIndex];
+      let x0 = data['x'],
+          y0 = data['y'],
+          x1 = edge['startVertices'].value[0]['screen']['x'],
+          y1 = edge['startVertices'].value[0]['screen']['y'],
+          x2 = edge['endVertices'].value[0]['screen']['x'],
+          y2 = edge['endVertices'].value[0]['screen']['y'];
+
+      let segmentLength = Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
+      let distFromVertex1 = Math.abs((x0 - x1) * (x2 - x1) + (y0 - y1) * (y2 - y1)) / segmentLength;
+      let distFromVertex2 = Math.abs((x0 - x2) * (x1 - x2) + (y0 - y2) * (y1 - y2)) / segmentLength;
+      // Eq. (14) here: http://mathworld.wolfram.com/Point-LineDistance2-Dimensional.html
+      let perpendicularDist = Math.abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1)) / segmentLength;
+
+      // Slight misnomer
+      let totalDist = perpendicularDist + (distFromVertex1 + distFromVertex2 - segmentLength);
+
+      if (totalDist < currentMaxDist(edge)) {
+        targets.push([edge, totalDist]);
+      }
+    }
+
+  } else if (currentType == undefined) {
+    callback = data['callback'];
+    clearInterval(data['timer']);
+    temp['identifyTargets'] = null;
+    targets.sort(function(a, b){ return a[1] - b[1]; });
+    // console.log('callback:', callback);
+    return callback(targets);
+  }
+
+  if (modelIndex > currentValues.length) {
+    data['modelIndex'] = 0;
+    data['typeIndex'] += 1;
+    if (data['typeIndex'] < data['types'].length) {
+      data['currentType'] = data['types'][data['typeIndex']][0];
+      data['currentMaxDist'] = data['types'][data['typeIndex']][1];
+    } else {
+      data['currentType'] = null;
+      data['currentMaxDist'] = null;
+    }
+    data['currentValues'] = null;
+  } else {
+    data['modelIndex'] += 1;
+  }
 }
 
 function handleDoubleClick() {
@@ -1174,21 +1239,25 @@ function handleDoubleClick() {
     return;
   }
 
-  let vert_max_dist = function(vertex){
+  let vertMaxDist = function(vertex){
     return Math.sqrt(vertex['node']['data']['size']);
   };
 
-  let targets = identifyTargets(x, y, [['vertices', vert_max_dist]]);
-
-  if (targets.length <= 1) {
-    createVertex(x, y);
-  } else {
-    let vertex = targets[0][0];
-    zoomToVertex(vertex);
-    if (vertex.subwebs.value.length == 0) {
-      createSubweb(vertex);
+  let callback = function(targets){
+    console.log('???');
+    console.log(targets);
+    if (targets.length <= 1) {
+      createVertex(x, y);
+    } else {
+      let vertex = targets[0][0];
+      zoomToVertex(vertex);
+      if (vertex.subwebs.value.length == 0) {
+        createSubweb(vertex);
+      }
     }
-  }
+  };
+
+  let targets = identifyTargets(x, y, [['vertices', vertMaxDist]], callback);
 }
 
 function createVertex(x, y) {
@@ -1301,85 +1370,89 @@ function selectClosestElement() {
     return;
   }
 
-  let vert_max_dist = function(vertex){
+  let vertMaxDist = function(vertex){
     return Math.sqrt(vertex['node']['data']['size']);
   };
-  let edge_max_dist = function(edge){
+  let edgeMaxDist = function(edge){
     return 5;
   };
 
-  let targets = identifyTargets(x, y, [['vertices', vert_max_dist], ['edges', edge_max_dist]]);
+  let callback = function(targets){
+    console.log('?');
+    if (targets.length <= 1) {
+      populateSelectedPane();
+      addToSelected(null);
+      return;
+    }
 
-  if (targets.length <= 1) {
-    populateSelectedPane();
-    addToSelected(null);
-    return;
-  }
+    console.log(targets);
 
-  console.log(targets);
+    if (temp['makingEdge'] != undefined) {
+      let end = null;
 
-  if (temp['makingEdge'] != undefined) {
-    let end = null;
+      for (let index in targets) {
+        let target = targets[index][0];
 
-    for (let index in targets) {
-      let target = targets[index][0];
-
-      if (target instanceof Vertex) {
-        end = target;
-        break;
+        if (target instanceof Vertex) {
+          end = target;
+          break;
+        }
       }
-    }
 
-    if (end && end.id != temp['makingEdge']['start'].id) {
-      makeEdge(temp['makingEdge']['start'], end);
-    }
-
-    delete temp['makingEdge'];
-
-  } else if (mouseState['lastReleased'] == 3) {
-    let start = null;
-
-    for (let index in targets) {
-      let target = targets[index][0];
-
-      if (target instanceof Vertex) {
-        start = target;
-        break;
+      if (end && end.id != temp['makingEdge']['start'].id) {
+        makeEdge(temp['makingEdge']['start'], end);
       }
-    }
 
-    if (start) {
-      temp['makingEdge'] = {'start': start};
-      selected.push(start);
-      populateSelectedPane(start);
-      addToSelected(start);
-    }
+      delete temp['makingEdge'];
 
-  } else if (mouseState['lastReleased'] == 1) {
+    } else if (mouseState['lastReleased'] == 3) {
+      let start = null;
 
-    // Given a choice between a vertex and an edge, pick the vertex.
-    let closestVertex = null;
-    let closestEdge = null;
+      for (let index in targets) {
+        let target = targets[index][0];
 
-    for (let index in targets) {
-      if (targets[index][0] instanceof Vertex) {
-        closestVertex = targets[index][0];
-        break;
-      } else if (targets[index][0] instanceof Edge && closestEdge == null) {
-        closestEdge = targets[index][0];
+        if (target instanceof Vertex) {
+          start = target;
+          break;
+        }
       }
-    }
 
-    let closestElement = closestVertex || closestEdge;
-    addToSelected(closestElement);
-    populateSelectedPane(closestElement);
-  }
+      if (start) {
+        temp['makingEdge'] = {'start': start};
+        selected.push(start);
+        populateSelectedPane(start);
+        addToSelected(start);
+      }
+
+    } else if (mouseState['lastReleased'] == 1) {
+
+      // Given a choice between a vertex and an edge, pick the vertex.
+      let closestVertex = null;
+      let closestEdge = null;
+
+      for (let index in targets) {
+        if (targets[index][0] instanceof Vertex) {
+          closestVertex = targets[index][0];
+          break;
+        } else if (targets[index][0] instanceof Edge && closestEdge == null) {
+          closestEdge = targets[index][0];
+        }
+      }
+
+      let closestElement = closestVertex || closestEdge;
+      addToSelected(closestElement);
+      populateSelectedPane(closestElement);
+    }
+  };
+
+  let targets = identifyTargets(x, y, [['vertices', vertMaxDist], ['edges', edgeMaxDist]], callback);
 }
 
 function multiClick() {
   if (mouseState['clicks'] == 1) {
     selectClosestElement();
   } else if (mouseState['clicks'] == 2) {
+    console.log('???');
     handleDoubleClick();
   }
 }
