@@ -27,7 +27,9 @@ def home_view(**kwargs):
 
   context['docs'] = []
   if account:
-    context['docs'] = Document.find({'owner': account.genid}, ignore_not_found=True)
+    for doc in Document.collection().find({'owner': account.genid}, projection=['name']):
+      doc['id'] = str(doc['_id'])
+      context['docs'].append(doc)
 
   return render_template('home.html', **context)
 

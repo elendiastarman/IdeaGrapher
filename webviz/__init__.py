@@ -27,7 +27,6 @@ if app.config.get('MONGO_DATABASE'):
     port=app.config.get('MONGO_PORT', 27017),
   )
   graphstore.MONGO_DATABASE = mongo_args['database']
-  print('MONGO_DATABASE:', graphstore.MONGO_DATABASE)
 
   if app.config.get('MONGO_USERNAME'):
     mongo_args.update(dict(
