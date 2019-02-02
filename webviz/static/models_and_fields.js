@@ -1396,7 +1396,7 @@ function cascadeDeletes(instanceToDelete) {
 
     } else if (nextModel instanceof Node) {
 
-      for (let graphId of crossReference[nextModel.id]['Graph']) {
+      for (let graphId of crossReference[nextModel.id]['Graph'] || []) {
         container = models['Graph'][graphId];
         if (container == undefined) {
           continue;
@@ -1601,6 +1601,19 @@ function restockObjectIds(num) {
       console.log('ERROR ', responseData);
     },
   });
+}
+
+function markEverythingDirty() {
+  for (let key in models) {
+    for (let model of models[key]) {
+      console.log(model);
+      for (let fieldName in model._fields) {
+        model._fields[fieldName].markDirty();
+      }
+    }
+  }
+
+  needToSave = true;
 }
 
 var dirtyModels = [];

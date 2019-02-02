@@ -53,7 +53,7 @@ def render_view(docid, **kwargs):
   context = {'docid': docid}
   account = get_user(session)
 
-  doc = Document.get_by_id(docid)
+  doc = Document.get_by_id(docid, ignore_not_found=True)
   context['doc'] = doc
   context['pretty_json'] = json.dumps(json.loads(doc.json()), indent=2)
 
@@ -148,7 +148,7 @@ def resolve_model(model_name, model_id, id_map):
     element = id_map[model_id]
   else:
     inner_model = MODEL_MAP[model_name]
-    element = inner_model.get_by_id(model_id)
+    element = inner_model.get_by_id(model_id, ignore_not_found=True)
 
   return element
 
@@ -195,7 +195,10 @@ def create_model(data, id_map):
 
 def update_model(data, id_map):
   model = MODEL_MAP[data['$model']]
-  instance = model.get_by_id(data['$id'])
+  instance = model.get_by_id(data['$id'], ignore_not_found=True)
+
+  if instance is None:
+    return
 
   for item in data['$update']:
     element = resolve_typed_value(item, id_map)

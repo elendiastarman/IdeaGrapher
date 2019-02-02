@@ -115,7 +115,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
     return str(cls).split('.')[-1][:-2].lower()  # the class name lowercased
 
   @classmethod
-  def get_or_make_ref(cls, model_class, id, data=None, obj=None):
+  def get_or_make_ref(cls, model_class, id, data=None, obj=None, ignore_not_found=False):
     key = str(id)
 
     if model_class is None:
@@ -128,9 +128,9 @@ class MongoModel(object, metaclass=MongoModelMeta):
     else:
       if obj is None:
         if data is None:
-          obj = model_class.get_by_id(id)
+          obj = model_class.get_by_id(id, ignore_not_found=ignore_not_found)
         else:
-          obj = model_class.deserialize(data)
+          obj = model_class.deserialize(data, ignore_not_found=ignore_not_found)
 
       return cls.model_refs[model_class].setdefault(key, obj)
 
@@ -247,7 +247,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
     return json.dumps(kwargs.get('bundle'))
 
   @classmethod
-  def deserialize(cls, data):
+  def deserialize(cls, data, ignore_not_found=False):
     if not isinstance(data, dict):
       raise ValueError("Data ({}) for model {} must be a dict, not a {}".format(data, cls, type(data)))
 
@@ -266,7 +266,7 @@ class MongoModel(object, metaclass=MongoModelMeta):
           cls.fields[key] = RawField()
 
       try:
-        deserialized_data[key] = cls.fields[key].deserialize(value)
+        deserialized_data[key] = cls.fields[key].deserialize(value, ignore_not_found=ignore_not_found)
       except ValueError as e:
         errors[key] = e.args[0]
 
@@ -280,31 +280,34 @@ class MongoModel(object, metaclass=MongoModelMeta):
     return obj
 
   @classmethod
-  def find(cls, query={}):
+  def find(cls, query={}, ignore_not_found=False):
     if not MONGO_CLIENT:
       raise ValueError("Must be connected to Mongo.")
 
     docs = MONGO_CLIENT[MONGO_DATABASE][cls.COLLECTION].find(query)
 
-    return [cls.get_or_make_ref(cls, id=doc['_id'], data=doc) for doc in docs]
+    return [cls.get_or_make_ref(cls, id=doc['_id'], data=doc, ignore_not_found=ignore_not_found) for doc in docs]
 
   @classmethod
-  def find_one(cls, query):
+  def find_one(cls, query, ignore_not_found=False):
     if not MONGO_CLIENT:
       raise ValueError("Must be connected to Mongo.")
 
     doc = MONGO_CLIENT[MONGO_DATABASE][cls.COLLECTION].find_one(query)
     if doc is None:
-      raise ObjectNotFound("No {} was found with query {}.".format(cls, query))
+      if ignore_not_found:
+        return None
+      else:
+        raise ObjectNotFound("No {} was found with query {}.".format(cls, query))
 
-    return cls.get_or_make_ref(cls, id=doc['_id'], data=doc)
+    return cls.get_or_make_ref(cls, id=doc['_id'], data=doc, ignore_not_found=ignore_not_found)
 
   @classmethod
-  def get_by_id(cls, object_id):
+  def get_by_id(cls, object_id, ignore_not_found=False):
     if isinstance(object_id, str):
       object_id = ObjectId(object_id)
 
-    return cls.find_one({'_id': object_id})
+    return cls.find_one({'_id': object_id}, ignore_not_found=ignore_not_found)
 
 
 class MongoField:
@@ -358,7 +361,7 @@ class MongoField:
   def serialize(self, **kwargs):
     return self.value
 
-  def deserialize(self, data):
+  def deserialize(self, data, ignore_not_found=False):
     self.dirty = False
     return data
     # ret = cls(default=cls.clean(data))
@@ -552,9 +555,9 @@ class ListField(MongoField):
     else:
       return [item.serialize(**kwargs) for item in self.value]
 
-  def deserialize(self, data):
+  def deserialize(self, data, ignore_not_found=False):
     if isinstance(self.field_class, ModelField):
-      return [self.field_class.model_class.get_or_make_ref(self.field_class.model_class, item) for item in data]
+      return list(filter(lambda x: x is not None, [self.field_class.model_class.get_or_make_ref(self.field_class.model_class, item, ignore_not_found=ignore_not_found) for item in data]))
     else:
       return [self.field_class(item) for item in data]
 
@@ -603,8 +606,8 @@ class ModelField(MongoField):
     self.value.serialize(**kwargs)
     return self.value.id
 
-  def deserialize(self, data):
-    return MongoModel.get_or_make_ref(self.model_class, data)
+  def deserialize(self, data, ignore_not_found=False):
+    return MongoModel.get_or_make_ref(self.model_class, data, ignore_not_found=ignore_not_found)
 
 
 class NestedField(MongoField):
