@@ -342,16 +342,57 @@ class ListField extends BaseField {
     let div = this._input.append('div')
       .attr('id', randomId);
 
+    let tempFunc = function(box, self, canEdit, randId) { return function() {
+      if (box.select('div').size() > 0) {
+        return;
+      }
+
+      let inputDiv = box.append('div')
+        .attr('id', 'input' + randId)
+        .style('padding', '5px')
+        .style('border-left', '2px solid black')
+        .property('hidden', true);
+
+      inputDiv.append('hr');
+      for (let index in self.value) {
+        self.addInputElement(inputDiv.append('div'), self.value[index], canEdit);
+      }
+      inputDiv.append('hr');
+
+      if (!canEdit || box.select('a#add' + randId).size() > 0) {
+        return;
+      }
+
+      let tempFuncInner = function(box, self, canEdit){ return function(){
+        d3.event.preventDefault();
+        if (self.fieldClass == ModelField) {
+          let model = modelMap[self.fieldArgs[0]];
+          let newModel = new model(model._defaultData(), false);
+          self.push(newModel);
+        } else {
+          self.push({});
+        }
+        self.addInputElement(box, self.value[self.value.length - 1], canEdit);
+      }; }(inputDiv, self, canEdit);
+
+      box.append('br');
+      box.append('a')
+        .attr('id', 'add' + randId)
+        .attr('href', '').text('+ Add one')
+        .on('click', tempFuncInner);
+    }; };
+
     div.append('a')
       .attr('id', 'show' + randomId)
       .attr('href', '').text('show ' + this.value.length + ' items')
       .property('hidden', false)
-      .on('click', function() {
+      .on('click', function(box, self, canEdit, randId) { return function() {
         d3.event.preventDefault();
+        tempFunc(box, self, canEdit, randId)();
         d3.select('#show' + randomId).property('hidden', true);
         d3.select('#hide' + randomId).property('hidden', false);
         d3.select('#input' + randomId).property('hidden', false);
-      });
+      }; }(div, this, editable, randomId));
 
     div.append('a')
       .attr('id', 'hide' + randomId)
@@ -363,39 +404,6 @@ class ListField extends BaseField {
         d3.select('#hide' + randomId).property('hidden', true);
         d3.select('#input' + randomId).property('hidden', true);
       });
-
-    let inputDiv = div.append('div')
-      .attr('id', 'input' + randomId)
-      .style('padding', '5px')
-      .style('border-left', '2px solid black')
-      .property('hidden', true);
-
-    inputDiv.append('hr');
-    for (let index in this.value) {
-      this.addInputElement(inputDiv.append('div'), this.value[index], editable);
-    }
-    inputDiv.append('hr');
-
-    if (!editable) {
-      return;
-    }
-
-    let tempFunc = function(box, self, canEdit){ return function(){
-      d3.event.preventDefault();
-      if (self.fieldClass == ModelField) {
-        let model = modelMap[self.fieldArgs[0]];
-        let newModel = new model(model._defaultData(), false);
-        self.push(newModel);
-      } else {
-        self.push({});
-      }
-      self.addInputElement(box, self.value[self.value.length - 1], canEdit);
-    }; };
-    div.append('br');
-    div.append('a')
-      .attr('id', 'add' + randomId)
-      .attr('href', '').text('+ Add one')
-      .on('click', tempFunc(inputDiv, this, editable));
   }
 }
 
