@@ -527,7 +527,7 @@ class ListField(MongoField):
   def is_dirty(self):
     if self.dirty is True:
       if isinstance(self.field_class, ModelField):
-        return dict([(index, element.id) for index, element in enumerate(self.value)])
+        return dict([(index, element.id) for index, element in enumerate(self.value) if element is not None])
       else:
         return True
 
@@ -546,12 +546,13 @@ class ListField(MongoField):
 
   def mark_clean(self):
     for index, element in enumerate(self.value):
-      element.mark_clean()
+      if element is not None:
+        element.mark_clean()
 
   def serialize(self, **kwargs):
     if isinstance(self.field_class, ModelField):
       kwargs['include_id'] = True
-      return [item.serialize(**kwargs)['id'] for item in self.value]
+      return list(filter(lambda x: x is not None, [item.serialize(**kwargs)['id'] for item in self.value if item is not None]))
     else:
       return [item.serialize(**kwargs) for item in self.value]
 

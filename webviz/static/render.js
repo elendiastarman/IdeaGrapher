@@ -913,7 +913,17 @@ function enterOrExitSubweb(scrollDirection) {
     }
   }
   let frameWidth = frame['dimensions']['width'],
-      frameHeight = frame['dimensions']['height'];
+      frameHeight = frame['dimensions']['height'],
+      threshold = Math.min(frameWidth, frameHeight);
+  let offsetX = rootWeb['screen']['x'],
+      offsetY = rootWeb['screen']['y'],
+      offsetScale = rootWeb['screen']['scale'];
+
+  for (let index = 1; index < currentWebs.length; index++) {
+    offsetX += currentWebs[index]['parent']['screen']['x'] + currentWebs[index]['web']['screen']['x'];
+    offsetY += currentWebs[index]['parent']['screen']['y'] + currentWebs[index]['web']['screen']['y'];
+    offsetScale *= currentWebs[index]['web']['screen']['scale'];
+  }
 
   if (scrollDirection < 0) {
     // zooming in; can enter subweb
@@ -922,10 +932,9 @@ function enterOrExitSubweb(scrollDirection) {
 
     for (let index in topWeb['web'].vertices.value) {
       let vertex = topWeb['web'].vertices.value[index];
-      let visualSize = rootWeb['screen']['scale'] * Math.sqrt(vertex['node']['data']['size']) * 2;
-      let threshold = Math.min(width, height);
-      let xDiff = Math.abs(vertex['screen']['x'] + rootWeb['screen']['x']) * rootWeb['screen']['scale'];
-      let yDiff = Math.abs(vertex['screen']['y'] + rootWeb['screen']['y']) * rootWeb['screen']['scale'];
+      let visualSize = offsetScale * Math.sqrt(vertex['node']['data']['size']) * 2;
+      let xDiff = Math.abs(vertex['screen']['x'] + offsetX);
+      let yDiff = Math.abs(vertex['screen']['y'] + offsetY);
 
       if (visualSize > threshold && xDiff < frameWidth / 2 && yDiff < frameHeight / 2) {
         let distFromCenter = xDiff**2 + yDiff**2;
@@ -951,7 +960,7 @@ function enterOrExitSubweb(scrollDirection) {
       return false;
     }
 
-    if (rootWeb['screen']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < Math.min(frameWidth, frameHeight)) {
+    if (offsetScale / topWeb['web']['screen']['scale'] * Math.sqrt(topWeb['parent']['node']['data']['size']) * 2 < threshold) {
       d3.select('[id=\'' + topWeb['parent'].id + '\']').select('.subwebContainer').style('visibility', 'hidden');
       currentWebs.pop();
     }
@@ -1266,7 +1275,7 @@ function createVertex(x, y) {
 
 function createSubweb(vertex) {
   let newGraph = new Graph(Graph._defaultData(), false);
-  let newWeb = new Web(Web._defaultData({'graph': newGraph.id}), false);
+  let newWeb = new Web(Web._defaultData({'graph': newGraph.id, 'screen': {'scale': 0.1}}), false);
   models['Graph'].add(newGraph);
   models['Web'].add(newWeb);
 
@@ -1315,6 +1324,16 @@ function zoomToVertex(vertex) {
 
   if (temp['zooming'] == undefined) {
 
+    let offsetX = 0,
+        offsetY = 0,
+        offsetScale = 1;
+
+    for (let index = 1; index < currentWebs.length; index++) {
+      offsetX += -currentWebs[index]['parent']['screen']['x'] * offsetScale + currentWebs[index]['web']['screen']['x'];
+      offsetY += -currentWebs[index]['parent']['screen']['y'] * offsetScale + currentWebs[index]['web']['screen']['y'];
+      offsetScale *= currentWebs[index]['web']['screen']['scale'];
+    }
+
     let now = new Date();
     temp['zooming'] = {
       'startTime': now,
@@ -1322,9 +1341,9 @@ function zoomToVertex(vertex) {
       'startX': rootWeb['screen']['x'],
       'startY': rootWeb['screen']['y'],
       'startS': rootWeb['screen']['scale'],
-      'endX': -vertex['screen']['x'],
-      'endY': -vertex['screen']['y'],
-      'endS': Math.max(frameWidth, frameHeight) * 0.95 / Math.sqrt(vertex['node']['data']['size']) / 2,
+      'endX': offsetX - vertex['screen']['x'] * offsetScale,
+      'endY': offsetY - vertex['screen']['y'] * offsetScale,
+      'endS': Math.max(frameWidth, frameHeight) * 0.95 / offsetScale / Math.sqrt(vertex['node']['data']['size']) / 2,
       'timer': setInterval(zoomToVertex, 10),
     };
 

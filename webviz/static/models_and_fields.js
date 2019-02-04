@@ -983,6 +983,10 @@ class Web extends BaseModel {
         data['data'] = Object.assign({}, data['data'], extraData['data']);
         delete extraData['data'];
       }
+      if (extraData['screen']) {
+        data['screen'] = Object.assign({}, data['screen'], extraData['screen']);
+        delete extraData['screen'];
+      }
       data = Object.assign({}, data, extraData);
     }
 
@@ -1778,6 +1782,6 @@ function saveDirtyModels() {
 }
 
 var saveTimer;
-var saveDelay = 5000;
+var saveDelay = 1000;
 saveDirtyModels();
 saveTimer = setInterval(saveDirtyModels, saveDelay);
